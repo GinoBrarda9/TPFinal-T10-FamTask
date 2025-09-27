@@ -1,0 +1,4 @@
+package com.team10.famtask.exception;
+
+public class GlobalExceptionHandler {
+}
