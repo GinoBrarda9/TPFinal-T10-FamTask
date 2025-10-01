@@ -28,7 +28,7 @@ public class SecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // login público
+                        .requestMatchers("/api/auth/**").permitAll() // login y register públicos
                         .anyRequest().authenticated()               // todo lo demás protegido
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -41,7 +41,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Si necesitás un AuthenticationManager para inyecciones
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
