@@ -18,7 +18,7 @@ export default function LoginForm({ onNavigateToSignup }) {
       if (response.ok) {
         const data = await response.json();
         console.log("Login exitoso:", data);
-
+        localStorage.setItem("token", data.token);
         // Guardar token, redirigir al dashboard, etc.
       } else {
         console.error("Error en login");
