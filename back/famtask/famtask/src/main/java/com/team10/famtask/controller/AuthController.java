@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -28,26 +29,28 @@ public class AuthController {
     // Registro de usuario
     // ====================
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@RequestBody RegisterRequest request) {
+
+    public ResponseEntity<Map<String, String>> registerUser(@RequestBody RegisterRequest request) {
 
         if (userRepository.existsById(request.getDni())) {
-            return ResponseEntity.badRequest().body("El DNI ya está registrado.");
+            return ResponseEntity.badRequest().body(Map.of("error", "El DNI ya está registrado."));
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body("El email ya está registrado.");
+            return ResponseEntity.badRequest().body(Map.of("error", "El email ya está registrado."));
         }
 
         if (!isValidEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body("Email inválido.");
-        }
-        if (!isValidPassword(request.getPassword())) {
-            return ResponseEntity.badRequest().body(
-                    "La contraseña debe tener al menos 8 caracteres, " +
-                            "una mayúscula, una minúscula, un número y un carácter especial."
-            );
+            return ResponseEntity.badRequest().body(Map.of("error", "Email inválido."));
         }
 
+        if (!isValidPassword(request.getPassword())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error",
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial."
+            ));
+        }
+        System.out.println("RegisterRequest recibido: " + request);
         String hashedPassword = passwordEncoder.encode(request.getPassword());
         User user = User.builder()
                 .dni(request.getDni())
@@ -58,30 +61,31 @@ public class AuthController {
                 .build();
 
         userRepository.save(user);
-        return ResponseEntity.ok("Usuario registrado con éxito.");
+
+        return ResponseEntity.ok(Map.of("message", "Usuario registrado con éxito."));
     }
 
     // ====================
     // Login
     // ====================
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
         Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
 
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body("Credenciales inválidas.");
+            return ResponseEntity.status(401).body(Map.of("error", "Credenciales inválidas."));
         }
 
         User user = userOpt.get();
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            return ResponseEntity.status(401).body("Credenciales inválidas.");
+            return ResponseEntity.status(401).body(Map.of("error", "Credenciales inválidas."));
         }
 
         // ✅ Generar token real con JwtService
         String token = jwtService.generateToken(user.getEmail());
 
-        return ResponseEntity.ok(new LoginResponse(token));
+        return ResponseEntity.ok(Map.of("token", token));
     }
 
     // ====================
@@ -99,11 +103,6 @@ public class AuthController {
     public static class LoginRequest {
         private String email;
         private String password;
-    }
-
-    @Data
-    public static class LoginResponse {
-        private final String token;
     }
 
     // ====================

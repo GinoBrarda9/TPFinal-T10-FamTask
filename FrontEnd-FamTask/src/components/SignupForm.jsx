@@ -82,14 +82,11 @@ export default function SignupForm({ onNavigateToLogin }) {
     setLoading(true);
 
     try {
-      // Prepara los datos para enviar (sin confirmPassword)
       const dataToSend = {
-        nombre: formData.nombre,
-        apellido: formData.apellido,
         dni: formData.dni,
+        name: formData.nombre, // o nombre + " " + apellido si querés
         email: formData.email,
         password: formData.password,
-        rol: formData.rol,
       };
 
       const response = await fetch("http://localhost:8080/api/auth/register", {
@@ -100,18 +97,16 @@ export default function SignupForm({ onNavigateToLogin }) {
         body: JSON.stringify(dataToSend),
       });
 
+      const responseData = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        console.log("Registro exitoso:", data);
+        console.log("Registro exitoso:", responseData);
         alert("¡Usuario registrado exitosamente!");
-        // Redirige al login después del registro exitoso
-        if (onNavigateToLogin) {
-          onNavigateToLogin();
-        }
+        if (onNavigateToLogin) onNavigateToLogin();
       } else {
-        const errorData = await response.json();
+        // Mostrar el mensaje de error real que envía tu backend
         alert(
-          `Error: ${errorData.message || "No se pudo registrar el usuario"}`
+          `Error: ${responseData.error || "No se pudo registrar el usuario"}`
         );
       }
     } catch (error) {
