@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LoginForm({ onNavigateToSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,6 +21,7 @@ export default function LoginForm({ onNavigateToSignup }) {
         const data = await response.json();
         console.log("Login exitoso:", data);
         localStorage.setItem("token", data.token);
+        navigate("/home");
         // Guardar token, redirigir al dashboard, etc.
       } else {
         console.error("Error en login");
