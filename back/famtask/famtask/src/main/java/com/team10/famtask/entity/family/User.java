@@ -42,7 +42,7 @@ public class User {
             createdAt = LocalDateTime.now();
         }
         if (role == null) {
-            role = "member";
+            role = "USER";
         }
     }
 }

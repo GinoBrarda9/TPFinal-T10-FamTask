@@ -6,6 +6,7 @@ import com.team10.famtask.security.JwtService;
 import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -17,12 +18,14 @@ import java.util.regex.Pattern;
 public class AuthController {
 
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository, JwtService jwtService) {
+    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+
     }
 
     // ====================
@@ -83,7 +86,7 @@ public class AuthController {
         }
 
         // ✅ Generar token real con JwtService
-        String token = jwtService.generateToken(user.getEmail(), user.getName());
+        String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getName());
 
         return ResponseEntity.ok(Map.of("token", token));
     }
