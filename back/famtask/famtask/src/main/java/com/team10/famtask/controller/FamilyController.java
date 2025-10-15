@@ -1,15 +1,35 @@
 package com.team10.famtask.controller;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.team10.famtask.entity.family.Family;
+import com.team10.famtask.entity.family.User;
+import com.team10.famtask.service.family.FamilyService;
+import com.team10.famtask.service.security.SecurityService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
+@RequestMapping("/api/families")
+@RequiredArgsConstructor
 public class FamilyController {
 
-    @GetMapping("/health")
-    public String healthCheck() {
-        return "ok";
+    private final FamilyService familyService;
+    private final SecurityService securityService;
+
+    @PostMapping
+    public ResponseEntity<?> createFamily(@RequestBody Map<String, String> body) {
+        User currentUser = securityService.getCurrentUser();
+
+        if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
+            return ResponseEntity.status(403)
+                    .body(Map.of("error", "Solo los administradores pueden crear una familia."));
+        }
+
+        String name = body.get("name");
+        Family created = familyService.createFamily(name, currentUser);
+        return ResponseEntity.ok(created);
     }
+
 }
