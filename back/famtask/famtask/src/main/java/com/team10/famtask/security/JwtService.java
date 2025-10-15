@@ -26,11 +26,12 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(String email,String role, String name) {
+    public String generateToken( String dni, String email,String role, String name) {
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(dni)
                 .claim("role", role)
                 .claim("name", name)
+                .claim("email", email) // <-- agregamos el dni
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)

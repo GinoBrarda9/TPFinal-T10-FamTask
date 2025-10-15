@@ -383,10 +383,10 @@ export default function HomePage() {
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-amber-400 to-yellow-500 shadow-lg p-8 text-white w-full">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            ¡Hola, {userName}! 👋
+            ¡Hola, {userName}!
           </h1>
           <p className="text-amber-50 text-lg">
-            Bienvenido a tu espacio personal
+            Bienvenido a tu espacio personal!
           </p>
         </div>
 
@@ -398,7 +398,7 @@ export default function HomePage() {
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-8 w-8 text-purple-600"
+                  className="h-8 w-8 text-amber-500"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -417,7 +417,7 @@ export default function HomePage() {
                   Invita a tus familiares y comienza a organizar juntos
                 </p>
               </div>
-              <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors">
+              <button className="w-full bg-amber-300 hover:bg-amber-300 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5"
@@ -443,7 +443,7 @@ export default function HomePage() {
               <h3 className="text-xl font-bold">Board de Actividades</h3>
               <button
                 onClick={handleAddActivity}
-                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="bg-amber-300 hover:bg-amber-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

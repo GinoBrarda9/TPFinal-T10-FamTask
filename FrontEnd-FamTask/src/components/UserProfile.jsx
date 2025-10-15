@@ -7,41 +7,62 @@ export default function UserProfile() {
   const [editing, setEditing] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
   const [userData, setUserData] = useState({
-    // Datos personales
     nombre: "",
     email: "",
     dni: "",
     rol: "",
     telefono: "",
     direccion: "",
-
-    // Datos médicos
     obraSocial: "",
     numeroAfiliado: "",
     grupoSanguineo: "",
     alergias: "",
-
-    // Datos escolares/laborales
     tipoActividad: "",
     institucion: "",
     cargo: "",
     horario: "",
-
-    // Contacto de emergencia
     nombreContacto: "",
     telefonoContacto: "",
     relacionContacto: "",
   });
 
+  // Guardar el DNI del usuario decodificado del token
+  const [userDni, setUserDni] = useState("");
+
   useEffect(() => {
-    fetchUserProfile();
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("No hay token, por favor inicia sesión");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      if (token.split(".").length === 3) {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        const dni = decoded.sub || decoded.dni;
+        setUserDni(dni);
+        fetchUserProfile(dni, token);
+      }
+    } catch (error) {
+      console.error("Error al decodificar token:", error);
+      alert("Token inválido");
+      navigate("/login");
+    }
   }, []);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (dni, token) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/api/user/profile", {
+      const response = await fetch(`http://localhost:8080/api/users/${dni}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -51,12 +72,32 @@ export default function UserProfile() {
 
       if (response.ok) {
         const data = await response.json();
-        setUserData(data);
+        setUserData({
+          nombre: data.name || "",
+          email: data.email || "",
+          dni: data.dni || "",
+          rol: data.role || "",
+          telefono: data.telefono || "",
+          direccion: data.direccion || "",
+          obraSocial: data.obraSocial || "",
+          numeroAfiliado: data.numeroAfiliado || "",
+          grupoSanguineo: data.grupoSanguineo || "",
+          alergias: data.alergias || "",
+          tipoActividad: data.tipoActividad || "",
+          institucion: data.institucion || "",
+          cargo: data.cargo || "",
+          horario: data.horario || "",
+          nombreContacto: data.nombreContacto || "",
+          telefonoContacto: data.telefonoContacto || "",
+          relacionContacto: data.relacionContacto || "",
+        });
       } else {
-        console.error("Error al cargar perfil");
+        console.error("Error al cargar perfil:", response.status);
+        alert("Usuario no encontrado");
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("Error al conectar con el servidor");
     } finally {
       setLoading(false);
     }
@@ -68,23 +109,53 @@ export default function UserProfile() {
   };
 
   const handleSave = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !userDni) return;
+
+    const userToUpdate = {
+      name: userData.nombre,
+      email: userData.email,
+      dni: userData.dni,
+      role: userData.rol,
+      telefono: userData.telefono,
+      direccion: userData.direccion,
+      obraSocial: userData.obraSocial,
+      numeroAfiliado: userData.numeroAfiliado,
+      grupoSanguineo: userData.grupoSanguineo,
+      alergias: userData.alergias,
+      tipoActividad: userData.tipoActividad,
+      institucion: userData.institucion,
+      cargo: userData.cargo,
+      horario: userData.horario,
+      nombreContacto: userData.nombreContacto,
+      telefonoContacto: userData.telefonoContacto,
+      relacionContacto: userData.relacionContacto,
+    };
+
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/api/user/profile", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
+      const response = await fetch(
+        `http://localhost:8080/api/users/${userDni}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userToUpdate),
+        }
+      );
 
       if (response.ok) {
         alert("Perfil actualizado exitosamente");
         setEditing(false);
-        fetchUserProfile();
+        fetchUserProfile(userDni, token);
       } else {
-        alert("Error al actualizar perfil");
+        const errorData = await response.json();
+        alert(
+          `Error al actualizar perfil: ${
+            errorData.message || "Error desconocido"
+          }`
+        );
       }
     } catch (error) {
       console.error("Error:", error);
@@ -181,7 +252,7 @@ export default function UserProfile() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Card Principal - Información Básica */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
+        <div className="bg-amber-50 rounded-2xl shadow-lg p-8 mb-6">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             {/* Avatar */}
             <div className="flex-shrink-0">
@@ -195,7 +266,7 @@ export default function UserProfile() {
             </div>
 
             {/* Datos Principales */}
-            <div className="flex-1 w-full">
+            <div className="flex-1 w-full border-amber-400">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-500 mb-1">
@@ -207,7 +278,7 @@ export default function UserProfile() {
                     value={userData.nombre}
                     onChange={handleInputChange}
                     disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg font-semibold border rounded-lg ${
+                    className={`w-full px-4 py-2 text-lg font-semibold border rounded-lg text-center ${
                       editing
                         ? "bg-white border-gray-300"
                         : "bg-gray-50 border-transparent"
@@ -225,7 +296,7 @@ export default function UserProfile() {
                     value={userData.email}
                     onChange={handleInputChange}
                     disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg border rounded-lg ${
+                    className={`w-full px-4 py-2 text-lg border rounded-lg text-center ${
                       editing
                         ? "bg-white border-gray-300"
                         : "bg-gray-50 border-transparent"
@@ -243,7 +314,7 @@ export default function UserProfile() {
                     value={userData.dni}
                     onChange={handleInputChange}
                     disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg border rounded-lg ${
+                    className={`w-full px-4 py-2 text-lg border rounded-lg text-center ${
                       editing
                         ? "bg-white border-gray-300"
                         : "bg-gray-50 border-transparent"
@@ -261,43 +332,7 @@ export default function UserProfile() {
                     value={userData.rol}
                     onChange={handleInputChange}
                     disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg border rounded-lg ${
-                      editing
-                        ? "bg-white border-gray-300"
-                        : "bg-gray-50 border-transparent"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-500 mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={userData.telefono}
-                    onChange={handleInputChange}
-                    disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg border rounded-lg ${
-                      editing
-                        ? "bg-white border-gray-300"
-                        : "bg-gray-50 border-transparent"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-500 mb-1">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    name="direccion"
-                    value={userData.direccion}
-                    onChange={handleInputChange}
-                    disabled={!editing}
-                    className={`w-full px-4 py-2 text-lg border rounded-lg ${
+                    className={`w-full px-4 py-2 text-lg border rounded-lg text-center ${
                       editing
                         ? "bg-white border-gray-300"
                         : "bg-gray-50 border-transparent"
@@ -312,10 +347,10 @@ export default function UserProfile() {
         {/* Secciones Desplegables */}
         <div className="space-y-4">
           {/* Datos Médicos */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className=" bg-amber-50 rounded-xl shadow-md overflow-hidden">
             <button
               onClick={() => toggleSection("medical")}
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-5 hover:bg-amber-100 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -446,10 +481,10 @@ export default function UserProfile() {
           </div>
 
           {/* Datos Escolares/Laborales */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="bg-amber-50 rounded-xl shadow-md overflow-hidden">
             <button
               onClick={() => toggleSection("work")}
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-5 hover:bg-amber-100 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -575,10 +610,10 @@ export default function UserProfile() {
           </div>
 
           {/* Contacto de Emergencia */}
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="bg-amber-50 rounded-xl shadow-md overflow-hidden">
             <button
               onClick={() => toggleSection("emergency")}
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center justify-between p-5 hover:bg-amber-100 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">

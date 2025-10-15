@@ -86,7 +86,7 @@ public class AuthController {
         }
 
         // ✅ Generar token real con JwtService
-        String token = jwtService.generateToken(user.getEmail(), user.getRole(), user.getName());
+        String token = jwtService.generateToken(user.getDni(), user.getEmail(), user.getRole(), user.getName());
 
         return ResponseEntity.ok(Map.of("token", token));
     }
