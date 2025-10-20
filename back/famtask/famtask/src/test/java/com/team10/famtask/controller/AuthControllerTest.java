@@ -93,6 +93,7 @@ class AuthControllerTest {
         req.setPassword("Password1!");
 
         User existingUser = User.builder()
+                .dni("12345678")      // <--- agregar DNI
                 .email("ana@test.com")
                 .passwordHash("hashed-pass")
                 .role("member")
@@ -101,13 +102,21 @@ class AuthControllerTest {
 
         when(userRepository.findByEmail("ana@test.com")).thenReturn(Optional.of(existingUser));
         when(passwordEncoder.matches("Password1!", "hashed-pass")).thenReturn(true);
-        when(jwtService.generateToken("ana@test.com", "member", "Ana")).thenReturn("fake-jwt-token");
+
+        // usar matchers en vez de valores literales
+        when(jwtService.generateToken(
+                anyString(),
+                eq("ana@test.com"),
+                eq("member"),
+                eq("Ana")
+        )).thenReturn("fake-jwt-token");
 
         ResponseEntity<Map<String, String>> response = authController.login(req);
 
         assertEquals(200, response.getStatusCodeValue());
         assertEquals("fake-jwt-token", response.getBody().get("token"));
     }
+
 
     @Test
     void login_invalidPassword() {

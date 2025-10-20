@@ -6,12 +6,14 @@ import com.team10.famtask.entity.family.FamilyMemberId;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 @Service
 public class FamilyService {
@@ -19,41 +21,40 @@ public class FamilyService {
     private final FamilyRepository familyRepository;
     private final FamilyMemberRepository familyMemberRepository;
 
-    public FamilyService(FamilyRepository familyRepository,
-                         FamilyMemberRepository familyMemberRepository) {
+    public FamilyService(FamilyRepository familyRepository, FamilyMemberRepository familyMemberRepository) {
         this.familyRepository = familyRepository;
         this.familyMemberRepository = familyMemberRepository;
     }
 
     @Transactional
-    public Family createFamily(String name, User creator) {
-        // Verificar que el usuario sea ADMIN global
-        if (creator == null || !"ADMIN".equalsIgnoreCase(creator.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo los administradores pueden crear familias");
+    public Family createFamily(String name, User adminUser) {
+        if (!"ADMIN".equalsIgnoreCase(adminUser.getRole())) {
+            throw new ResponseStatusException(FORBIDDEN, "Solo los administradores pueden crear familias.");
         }
 
         // Crear la familia
         Family family = new Family();
         family.setName(name);
-        family = familyRepository.save(family);
 
-        // Asociar al creador como ADMIN de la familia
-        FamilyMember member = FamilyMember.builder()
-                .id(new FamilyMemberId(creator.getDni(), family.getId()))
-                .user(creator)
-                .family(family)
+        // Crear el miembro admin y agregarlo a la familia
+        FamilyMember adminMember = FamilyMember.builder()
+                .id(new FamilyMemberId())
+                .user(adminUser)
                 .role("ADMIN")
                 .joinedAt(LocalDateTime.now())
                 .build();
 
-        familyMemberRepository.save(member);
+        family.addMember(adminMember); // agrega admin a la lista de miembros
 
-        return family;
+        // Guardar la familia (cascade ALL guardará también al miembro admin)
+        return familyRepository.save(family);
     }
 
-    public Family getFamilyById(Long id) {
-        return familyRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Family not found"));
+
+    @Transactional(readOnly = true)
+    public Family getFamilyById(Long familyId) {
+        return familyRepository.findById(familyId)
+                .orElseThrow(() -> new ResponseStatusException(FORBIDDEN, "Familia no encontrada"));
     }
 
 }

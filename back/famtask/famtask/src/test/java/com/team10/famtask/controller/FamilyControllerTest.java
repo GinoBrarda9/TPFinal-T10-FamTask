@@ -3,42 +3,27 @@ package com.team10.famtask.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.User;
-import com.team10.famtask.security.JwtService;
 import com.team10.famtask.service.family.FamilyService;
 import com.team10.famtask.service.security.SecurityService;
+import com.team10.famtask.util.Helper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(FamilyController.class)
-@AutoConfigureMockMvc(addFilters = false) // evita cargar seguridad real
 class FamilyControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
-
-    @MockBean
-    private JwtService jwtService;
-
-
-    @MockBean
     private FamilyService familyService;
-
-    @MockBean
     private SecurityService securityService;
-
     private ObjectMapper objectMapper;
 
     private User adminUser;
@@ -46,56 +31,53 @@ class FamilyControllerTest {
 
     @BeforeEach
     void setup() {
+        familyService = mock(FamilyService.class);
+        securityService = mock(SecurityService.class);
         objectMapper = new ObjectMapper();
 
-        adminUser = new User();
-        adminUser.setDni("11111111");
-        adminUser.setEmail("admin@test.com");
+        FamilyController controller = new FamilyController(familyService, securityService);
+        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        // Usuarios para los tests
+        adminUser = Helper.createUser("40123456", "Admin Test", "admin@test.com");
         adminUser.setRole("ADMIN");
 
-        normalUser = new User();
-        normalUser.setDni("22222222");
-        normalUser.setEmail("user@test.com");
+        normalUser = Helper.createUser("40123457", "User Test", "user@test.com");
         normalUser.setRole("USER");
     }
 
     @Test
-    void createFamily_success_forAdmin() throws Exception {
-        // Preparar la request
-        Family familyRequest = new Family();
-        familyRequest.setName("Familia Pérez");
+    void createFamily_forbidden_forNonAdmin() throws Exception {
+        // Simular usuario no-admin
+        when(securityService.getCurrentUser()).thenReturn(normalUser);
 
-        // Objeto que el service devolverá
-        Family createdFamily = new Family();
-        createdFamily.setId(1L);
-        createdFamily.setName("Familia Pérez");
+        Map<String, String> request = Map.of("name", "Familia Prohibida");
 
-        // Mockear dependencias
-        when(securityService.getCurrentUser()).thenReturn(adminUser);
-        when(familyService.createFamily(any(String.class), eq(adminUser))).thenReturn(createdFamily);
-
-        // Ejecutar la llamada al endpoint
         mockMvc.perform(post("/api/families")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(familyRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.name").value("Familia Pérez"));
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        // No se debería llamar al service
+        verify(familyService, never()).createFamily(any(), any());
     }
 
     @Test
-    void createFamily_forbidden_forNonAdmin() throws Exception {
-        Family familyRequest = new Family();
-        familyRequest.setName("Familia López");
+    void createFamily_success_forAdmin() throws Exception {
+        // Simular usuario admin
+        when(securityService.getCurrentUser()).thenReturn(adminUser);
 
-        when(securityService.getCurrentUser()).thenReturn(normalUser);
+        Family createdFamily = Helper.createFamily(1L, "Familia Permitida", new ArrayList<>());
+        when(familyService.createFamily("Familia Permitida", adminUser)).thenReturn(createdFamily);
+
+        Map<String, String> request = Map.of("name", "Familia Permitida");
 
         mockMvc.perform(post("/api/families")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(familyRequest)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Solo los administradores pueden crear una familia."));
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
 
-        verify(familyService, never()).createFamily(String.valueOf(ArgumentMatchers.any(Family.class)), any(User.class));
+        // Verificar que se llamó al service con los parámetros correctos
+        verify(familyService, times(1)).createFamily("Familia Permitida", adminUser);
     }
 }

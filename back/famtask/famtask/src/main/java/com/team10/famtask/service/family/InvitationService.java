@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class InvitationService {
@@ -55,18 +56,24 @@ public class InvitationService {
             Family family = invitation.getFamily();
             User invitedUser = invitation.getInvitedUser();
 
-            FamilyMember member = FamilyMember.builder()
-                    .id(new FamilyMemberId(invitedUser.getDni(), family.getId()))
-                    .user(invitedUser)
-                    .family(family)
-                    .role(invitation.getRole() != null ? invitation.getRole() : "member")
-                    .joinedAt(LocalDateTime.now())
-                    .build();
+            FamilyMember member = family.getMembers().stream()
+                    .filter(m -> m.getUser().getDni().equals(invitedUser.getDni()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        FamilyMember newMember = FamilyMember.builder()
+                                .id(new FamilyMemberId(invitedUser.getDni(), family.getId()))
+                                .user(invitedUser)
+                                .family(family)
+                                .role(invitation.getRole() != null ? invitation.getRole() : "member")
+                                .joinedAt(LocalDateTime.now())
+                                .build();
+                        family.addMember(newMember);
+                        return newMember;
+                    });
 
-            familyMemberRepository.save(member);
-
-            // Actualizar la lista de miembros en memoria
-            family.getMembers().add(member);
+            if (invitation.getRole() != null) {
+                member.setRole(invitation.getRole());
+            }
 
         } else {
             invitation.setStatus("REJECTED");

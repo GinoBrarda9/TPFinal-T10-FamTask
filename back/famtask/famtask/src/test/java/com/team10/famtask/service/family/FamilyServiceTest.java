@@ -53,7 +53,12 @@ class FamilyServiceTest {
         savedFamily.setId(1L);
         savedFamily.setName(familyName);
 
-        when(familyRepository.save(any(Family.class))).thenReturn(savedFamily);
+        when(familyRepository.save(any(Family.class))).thenAnswer(invocation -> {
+            Family f = invocation.getArgument(0);
+            f.setId(1L); // simulamos asignación de ID
+            f.getMembers().forEach(m -> m.getId().setFamilyId(f.getId())); // sincronizamos familyId
+            return f;
+        });
 
         // when
         Family result = familyService.createFamily(familyName, adminUser);
@@ -62,17 +67,20 @@ class FamilyServiceTest {
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getName()).isEqualTo(familyName);
 
-        ArgumentCaptor<FamilyMember> captor = ArgumentCaptor.forClass(FamilyMember.class);
-        verify(familyMemberRepository).save(captor.capture());
-
-        FamilyMember savedMember = captor.getValue();
-        assertThat(savedMember.getId()).isEqualTo(new FamilyMemberId(adminUser.getDni(), 1L));
-        assertThat(savedMember.getRole()).isEqualTo("ADMIN");
-        assertThat(savedMember.getJoinedAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(result.getMembers())
+                .hasSize(1)
+                .allSatisfy(member -> {
+                    assertThat(member.getUser()).isEqualTo(adminUser);
+                    assertThat(member.getRole()).isEqualTo("ADMIN");
+                    assertThat(member.getJoinedAt()).isBeforeOrEqualTo(LocalDateTime.now());
+                    assertThat(member.getId().getFamilyId()).isEqualTo(1L);
+                    assertThat(member.getId().getUserDni()).isEqualTo(adminUser.getDni());
+                });
 
         verify(familyRepository, times(1)).save(any(Family.class));
-        verify(familyMemberRepository, times(1)).save(any(FamilyMember.class));
+        // No se verifica familyMemberRepository.save porque se hace por cascade
     }
+
 
     @Test
     void shouldThrowExceptionWhenUserIsNotAdmin() {

@@ -19,8 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -103,6 +102,7 @@ class IntegrationControllerTest {
         request.setPassword("Password1!");
 
         User user = User.builder()
+                .dni("12345678")
                 .email("ana@test.com")
                 .passwordHash("hashed-pass")
                 .role("member")
@@ -111,7 +111,8 @@ class IntegrationControllerTest {
 
         when(userRepository.findByEmail("ana@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("Password1!", "hashed-pass")).thenReturn(true);
-        when(jwtService.generateToken("ana@test.com", "member", "Ana")).thenReturn("fake-jwt-token");
+        when(jwtService.generateToken(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn("fake-jwt-token");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

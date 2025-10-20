@@ -10,7 +10,6 @@ import com.team10.famtask.service.security.SecurityService;
 import com.team10.famtask.util.Helper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -43,7 +42,6 @@ class InvitationControllerTest {
         securityService = mock(SecurityService.class);
         objectMapper = new ObjectMapper();
 
-        // Crear usuario y familia comunes
         testUser = Helper.createUser("40123456", "Juan Perez", "juan@test.com");
         testFamily = Helper.createFamily(1L, "Familia de prueba", new ArrayList<>());
 
@@ -89,12 +87,18 @@ class InvitationControllerTest {
         invitation.setStatus("PENDING");
         invitation.setRole("USER");
 
-        when(invitationService.respondInvitation(1L, true)).thenReturn(invitation);
+        when(invitationService.respondInvitation(1L, true)).thenAnswer(inv -> {
+            invitation.setStatus("ACCEPTED");
+            return invitation;
+        });
 
         mockMvc.perform(post("/api/invitations/1/respond")
-                        .param("action", "true")
+                        .param("accept", "true")
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.invitedUser.dni").value(testUser.getDni()));
     }
 
     @Test
@@ -112,9 +116,12 @@ class InvitationControllerTest {
         });
 
         mockMvc.perform(post("/api/invitations/2/respond")
-                        .param("action", "false"))
+                        .param("accept", "false")
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("REJECTED"));
+                .andExpect(jsonPath("$.status").value("REJECTED"))
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.invitedUser.dni").value(testUser.getDni()));
 
         verify(invitationService, times(1)).respondInvitation(2L, false);
     }
@@ -135,6 +142,7 @@ class InvitationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].role").value("USER"))
                 .andExpect(jsonPath("$[0].invitedUser.dni").value(testUser.getDni()))
                 .andExpect(jsonPath("$[0].invitedUser.name").value(testUser.getName()));
 
