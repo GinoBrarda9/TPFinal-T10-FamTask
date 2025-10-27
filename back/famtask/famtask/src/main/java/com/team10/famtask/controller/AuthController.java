@@ -2,11 +2,15 @@ package com.team10.famtask.controller;
 
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.UserRepository;
+import com.team10.famtask.security.JwtService;
 import lombok.Data;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @RestController
@@ -14,37 +18,42 @@ import java.util.regex.Pattern;
 public class AuthController {
 
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository) {
+    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+
     }
 
+    // ====================
+    // Registro de usuario
+    // ====================
     @PostMapping("/register")
-    public ResponseEntity<String> registerUser(@RequestBody RegisterRequest request) {
 
-        // Validar si ya existe el DNI
+    public ResponseEntity<Map<String, String>> registerUser(@RequestBody RegisterRequest request) {
+
         if (userRepository.existsById(request.getDni())) {
-            return ResponseEntity.badRequest().body("El DNI ya está registrado.");
+            return ResponseEntity.badRequest().body(Map.of("error", "El DNI ya está registrado."));
         }
 
-        // Validar si ya existe el email
         if (userRepository.existsByEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body("El email ya está registrado.");
+            return ResponseEntity.badRequest().body(Map.of("error", "El email ya está registrado."));
         }
 
-        // Validaciones de formato
         if (!isValidEmail(request.getEmail())) {
-            return ResponseEntity.badRequest().body("Email inválido.");
-        }
-        if (!isValidPassword(request.getPassword())) {
-            return ResponseEntity.badRequest().body(
-                    "La contraseña debe tener al menos 8 caracteres, " +
-                            "una mayúscula, una minúscula, un número y un carácter especial."
-            );
+            return ResponseEntity.badRequest().body(Map.of("error", "Email inválido."));
         }
 
-        // Crear usuario con contraseña hasheada
+        if (!isValidPassword(request.getPassword())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error",
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial."
+            ));
+        }
+        System.out.println("RegisterRequest recibido: " + request);
         String hashedPassword = passwordEncoder.encode(request.getPassword());
         User user = User.builder()
                 .dni(request.getDni())
@@ -55,10 +64,35 @@ public class AuthController {
                 .build();
 
         userRepository.save(user);
-        return ResponseEntity.ok("Usuario registrado con éxito.");
+
+        return ResponseEntity.ok(Map.of("message", "Usuario registrado con éxito."));
     }
 
-    // DTO para recibir la request
+    // ====================
+    // Login
+    // ====================
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest request) {
+        Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Credenciales inválidas."));
+        }
+
+        User user = userOpt.get();
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            return ResponseEntity.status(401).body(Map.of("error", "Credenciales inválidas."));
+        }
+
+        String token = jwtService.generateToken(user.getEmail(), user.getDni(), user.getRole(), user.getName());
+
+        return ResponseEntity.ok(Map.of("token", token));
+    }
+
+    // ====================
+    // DTOs
+    // ====================
     @Data
     public static class RegisterRequest {
         private String dni;
@@ -67,15 +101,22 @@ public class AuthController {
         private String password;
     }
 
-    // Validación de email
+    @Data
+    public static class LoginRequest {
+        private String email;
+        private String password;
+    }
+
+    // ====================
+    // Validaciones
+    // ====================
     private boolean isValidEmail(String email) {
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
         return Pattern.compile(emailRegex).matcher(email).matches();
     }
 
-    // Validación de contraseña
     private boolean isValidPassword(String password) {
-        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$";
+        String passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,}$";
         return Pattern.compile(passwordRegex).matcher(password).matches();
     }
 }

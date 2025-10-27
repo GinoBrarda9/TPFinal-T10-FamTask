@@ -1,42 +1,30 @@
 package com.team10.famtask.entity.family;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
-@Data
 @Entity
-@Table(name = "family_members")
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor @Builder
 public class FamilyMember {
 
     @EmbeddedId
     private FamilyMemberId id;
 
-    @ManyToOne
-    @MapsId("userDni") // enlaza id.userDni con user.dni
-    @JoinColumn(name = "user_dni", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("userDni") // vincula el campo de FamilyMemberId.userDni
+    @JoinColumn(name = "user_dni")
+    @JsonBackReference
     private User user;
 
-    @ManyToOne
-    @MapsId("familyId") // enlaza id.familyId con family.id
-    @JoinColumn(name = "family_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("familyId") // vincula el campo de FamilyMemberId.familyId
+    @JoinColumn(name = "family_id")
     private Family family;
 
     private String role;
 
     private LocalDateTime joinedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        if (role == null) {
-            role = "member";
-        }
-        if (joinedAt == null) {
-            joinedAt = LocalDateTime.now();
-        }
-    }
 }

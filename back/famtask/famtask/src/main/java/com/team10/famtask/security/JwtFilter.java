@@ -1,9 +1,5 @@
 package com.team10.famtask.security;
 
-import com.team10.famtask.entity.family.User;
-import com.team10.famtask.repository.family.UserRepository;
-import com.team10.famtask.util.JwtUtil;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,50 +17,52 @@ import java.util.List;
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
-    private final UserRepository userRepo;
+    private final JwtService jwtService;
 
-    public JwtFilter(JwtUtil jwtUtil, UserRepository userRepo) {
-        this.jwtUtil = jwtUtil;
-        this.userRepo = userRepo;
+    public JwtFilter(JwtService jwtService) {
+        this.jwtService = jwtService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-            try {
-                Claims claims = jwtUtil.validateToken(token);
-                String dni = claims.getSubject();
+        jwt = authHeader.substring(7);
+        userEmail = jwtService.extractUsername(jwt);
 
-                User user = userRepo.findById(dni).orElse(null);
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (jwtService.isTokenValid(jwt, userEmail)) {
+                String role = jwtService.extractRole(jwt);
 
-                if (user != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    user,
-                                    null,
-                                    List.of(new SimpleGrantedAuthority(user.getRole()))
-                            );
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userEmail,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
-            } catch (Exception e) {
-                // Si falla el token devolvemos 401 y no seguimos con el filtro
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido o expirado");
-                return;
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }
 
         filterChain.doFilter(request, response);
     }
-}
 
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        return path.startsWith("/api/auth/");
+    }
+}

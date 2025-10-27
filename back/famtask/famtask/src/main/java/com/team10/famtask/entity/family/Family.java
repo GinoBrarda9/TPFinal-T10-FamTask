@@ -1,13 +1,14 @@
 package com.team10.famtask.entity.family;
 
-import com.team10.famtask.entity.board.Board;
-import com.team10.famtask.entity.calendar.Event;
-import com.team10.famtask.entity.finances.Account;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
+import java.util.ArrayList;
 import java.util.List;
 
-@Data
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "families")
 public class Family {
@@ -16,17 +17,35 @@ public class Family {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
 
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL)
-    private List<FamilyMember> members;
+    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FamilyMember> members = new ArrayList<>();
 
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL)
-    private List<Board> boards;
+    public void addMember(FamilyMember member) {
+        if (member == null) return;
 
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL)
-    private List<Account> accounts;
+        // setear el lado dueño de la relación
+        member.setFamily(this);
 
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL)
-    private List<Event> events;
+        // si usás clave compuesta (family_id + user_dni), asegurá el user_dni en el id
+        if (member.getId() == null) {
+            FamilyMemberId pk = new FamilyMemberId();
+            if (member.getUser() != null) {
+                pk.setUserDni(member.getUser().getDni());
+            }
+            // el family_id se completa solo al persistir si tenés @MapsId("familyId") en FamilyMember
+            member.setId(pk);
+        }
+
+        // evitar duplicados
+        if (this.members == null) {
+            this.members = new ArrayList<>();
+        }
+        if (!this.members.contains(member)) {
+            this.members.add(member);
+        }
+    }
+
 }

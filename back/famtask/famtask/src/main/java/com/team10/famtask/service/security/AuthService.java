@@ -1,4 +1,4 @@
-package com.team10.famtask.service;
+package com.team10.famtask.service.security;
 
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.UserRepository;
