@@ -1,151 +1,153 @@
 package com.team10.famtask.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.team10.famtask.dto.InvitationRequestDTO;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.Invitation;
 import com.team10.famtask.entity.family.User;
-import com.team10.famtask.service.family.FamilyService;
 import com.team10.famtask.service.family.InvitationService;
 import com.team10.famtask.service.security.SecurityService;
 import com.team10.famtask.util.Helper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@WebMvcTest(InvitationController.class)
 class InvitationControllerTest {
 
+    @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
     private InvitationService invitationService;
-    private FamilyService familyService;
+
+    @MockBean
     private SecurityService securityService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
-    private User testUser;
-    private Family testFamily;
+    private User adminUser;
+    private User invitedUser;
+    private Family family;
+    private Invitation invitation;
 
     @BeforeEach
-    void setup() {
-        invitationService = mock(InvitationService.class);
-        familyService = mock(FamilyService.class);
-        securityService = mock(SecurityService.class);
-        objectMapper = new ObjectMapper();
+    void setUp() {
+        adminUser = Helper.createUser("40123456", "Juan Pérez", "juan.admin@test.com", "ADMIN");
+        invitedUser = Helper.createUser("40222222", "María López", "maria.user@test.com", "USER");
+        family = Family.builder().id(1L).name("Familia Pérez").build();
 
-        testUser = Helper.createUser("40123456", "Juan Perez", "juan@test.com");
-        testFamily = Helper.createFamily(1L, "Familia de prueba", new ArrayList<>());
-
-        InvitationController controller = new InvitationController(invitationService, familyService, securityService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        invitation = Invitation.builder()
+                .id(1L)
+                .family(family)
+                .invitedUser(invitedUser)
+                .status("PENDING")
+                .role("USER")
+                .build();
     }
 
+    // ======================
+    // Crear invitación
+    // ======================
     @Test
-    void testInviteUserReturnsDto() throws Exception {
-        InvitationController.InviteRequest request = new InvitationController.InviteRequest();
-        request.setFamilyId(testFamily.getId());
-        request.setInvitedUserDni(testUser.getDni());
-        request.setRole("member");
+    void testCreateInvitation_Success() throws Exception {
+        InvitationRequestDTO request = new InvitationRequestDTO(family.getId(), invitedUser.getDni(), "USER");
 
-        Invitation invitation = new Invitation();
-        invitation.setId(10L);
-        invitation.setRole("member");
-        invitation.setInvitedUser(testUser);
-        invitation.setStatus("PENDING");
-        invitation.setFamily(testFamily);
+        when(securityService.getCurrentUser()).thenReturn(adminUser);
+        when(invitationService.createInvitation(any(User.class), anyLong(), anyString(), anyString()))
+                .thenReturn(invitation);
 
-        when(familyService.getFamilyById(testFamily.getId())).thenReturn(testFamily);
-        when(securityService.getUserByDni(testUser.getDni())).thenReturn(testUser);
-        when(invitationService.createInvitation(any(), any(), any())).thenReturn(invitation);
-
-        mockMvc.perform(post("/api/invitations/invite")
+        mockMvc.perform(post("/api/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.role").value("member"))
-                .andExpect(jsonPath("$.invitedUser.dni").value(testUser.getDni()))
-                .andExpect(jsonPath("$.invitedUser.name").value(testUser.getName()));
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.invitedUserName").value(invitedUser.getName()))
+                .andExpect(jsonPath("$.invitedUserEmail").value(invitedUser.getEmail()))
+                .andExpect(jsonPath("$.familyName").value(family.getName()));
+
+        verify(invitationService, times(1))
+                .createInvitation(any(User.class), anyLong(), anyString(), anyString());
     }
 
+    // ======================
+    // Aceptar invitación
+    // ======================
     @Test
-    void testRespondInvitationAcceptUpdatesStatus() throws Exception {
-        Invitation invitation = new Invitation();
-        invitation.setId(1L);
-        invitation.setInvitedUser(testUser);
-        invitation.setFamily(testFamily);
+    void testRespondInvitation_Accepted() throws Exception {
         invitation.setStatus("PENDING");
-        invitation.setRole("USER");
-
-        when(invitationService.respondInvitation(1L, true)).thenAnswer(inv -> {
-            invitation.setStatus("ACCEPTED");
-            return invitation;
-        });
+        when(securityService.getCurrentUser()).thenReturn(invitedUser);
+        when(invitationService.respondInvitation(eq(1L), eq(true), any(User.class)))
+                .thenAnswer(inv -> {
+                    invitation.setStatus("ACCEPTED");
+                    return invitation;
+                });
 
         mockMvc.perform(post("/api/invitations/1/respond")
                         .param("accept", "true")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED"))
-                .andExpect(jsonPath("$.role").value("USER"))
-                .andExpect(jsonPath("$.invitedUser.dni").value(testUser.getDni()));
+                .andExpect(jsonPath("$.invitedUserName").value(invitedUser.getName()));
+
+        verify(invitationService, times(1))
+                .respondInvitation(1L, true, invitedUser);
     }
 
+    // ======================
+    // Rechazar invitación
+    // ======================
     @Test
-    void testRespondInvitationRejectUpdatesStatus() throws Exception {
-        Invitation invitation = new Invitation();
-        invitation.setId(2L);
-        invitation.setInvitedUser(testUser);
-        invitation.setFamily(testFamily);
+    void testRespondInvitation_Rejected() throws Exception {
         invitation.setStatus("PENDING");
-        invitation.setRole("USER");
-
-        when(invitationService.respondInvitation(2L, false)).thenAnswer(inv -> {
-            invitation.setStatus("REJECTED");
-            return invitation;
-        });
+        when(securityService.getCurrentUser()).thenReturn(invitedUser);
+        when(invitationService.respondInvitation(eq(2L), eq(false), any(User.class)))
+                .thenAnswer(inv -> {
+                    invitation.setStatus("REJECTED");
+                    return invitation;
+                });
 
         mockMvc.perform(post("/api/invitations/2/respond")
                         .param("accept", "false")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
-                .andExpect(jsonPath("$.role").value("USER"))
-                .andExpect(jsonPath("$.invitedUser.dni").value(testUser.getDni()));
+                .andExpect(jsonPath("$.invitedUserName").value(invitedUser.getName()));
 
-        verify(invitationService, times(1)).respondInvitation(2L, false);
+        verify(invitationService, times(1))
+                .respondInvitation(2L, false, invitedUser);
     }
 
+    // ======================
+    // Invitaciones pendientes
+    // ======================
     @Test
-    void testPendingInvitationsReturnsList() throws Exception {
-        Invitation invitation = new Invitation();
-        invitation.setId(1L);
-        invitation.setInvitedUser(testUser);
-        invitation.setFamily(testFamily);
-        invitation.setStatus("PENDING");
-        invitation.setRole("USER");
-
-        when(securityService.getCurrentUser()).thenReturn(testUser);
-        when(invitationService.getPendingInvitations(testUser)).thenReturn(List.of(invitation));
+    void testGetPendingInvitations() throws Exception {
+        when(securityService.getCurrentUser()).thenReturn(invitedUser);
+        when(invitationService.getPendingInvitations(invitedUser))
+                .thenReturn(List.of(invitation));
 
         mockMvc.perform(get("/api/invitations/pending"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].status").value("PENDING"))
                 .andExpect(jsonPath("$[0].role").value("USER"))
-                .andExpect(jsonPath("$[0].invitedUser.dni").value(testUser.getDni()))
-                .andExpect(jsonPath("$[0].invitedUser.name").value(testUser.getName()));
+                .andExpect(jsonPath("$[0].invitedUserName").value(invitedUser.getName()));
 
-        verify(invitationService, times(1)).getPendingInvitations(testUser);
+        verify(invitationService, times(1)).getPendingInvitations(invitedUser);
     }
 }

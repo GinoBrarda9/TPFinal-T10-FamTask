@@ -6,6 +6,8 @@ import com.team10.famtask.entity.family.FamilyMemberId;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;
+import com.team10.famtask.repository.family.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,11 +21,13 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 public class FamilyService {
 
     private final FamilyRepository familyRepository;
+    private final UserRepository userRepository;
     private final FamilyMemberRepository familyMemberRepository;
 
-    public FamilyService(FamilyRepository familyRepository, FamilyMemberRepository familyMemberRepository) {
+    public FamilyService(FamilyRepository familyRepository, FamilyMemberRepository familyMemberRepository, UserRepository userRepository) {
         this.familyRepository = familyRepository;
         this.familyMemberRepository = familyMemberRepository;
+        this.userRepository= userRepository;
     }
 
     @Transactional
@@ -32,13 +36,16 @@ public class FamilyService {
             throw new ResponseStatusException(FORBIDDEN, "Solo los administradores pueden crear familias.");
         }
 
+        // 🔹 Reatachar el usuario para que JPA sepa que ya existe
+        adminUser = userRepository.findById(adminUser.getDni())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
         // Crear la familia
         Family family = new Family();
         family.setName(name);
 
         // Crear el miembro admin y agregarlo a la familia
         FamilyMember adminMember = FamilyMember.builder()
-                .id(new FamilyMemberId())
                 .user(adminUser)
                 .role("ADMIN")
                 .joinedAt(LocalDateTime.now())
@@ -46,9 +53,10 @@ public class FamilyService {
 
         family.addMember(adminMember); // agrega admin a la lista de miembros
 
-        // Guardar la familia (cascade ALL guardará también al miembro admin)
+        // Guardar la familia
         return familyRepository.save(family);
     }
+
 
 
     @Transactional(readOnly = true)

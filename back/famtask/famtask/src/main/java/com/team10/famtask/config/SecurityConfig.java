@@ -34,24 +34,31 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(csrf -> csrf.disable()) // deshabilitar CSRF
+                .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/families/**").authenticated()
                         .requestMatchers("/api/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html").permitAll()
+
+                        // 👇 Reglas específicas
+                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/families/**").authenticated()
+
+                        // Usuarios
                         .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/users/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {

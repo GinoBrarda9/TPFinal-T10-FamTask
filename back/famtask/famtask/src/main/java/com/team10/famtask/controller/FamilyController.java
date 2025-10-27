@@ -1,7 +1,7 @@
 package com.team10.famtask.controller;
 
 import com.team10.famtask.dto.ErrorResponse;
-import com.team10.famtask.dto.FamilyDTO;
+import com.team10.famtask.dto.family.FamilyDTO;
 import com.team10.famtask.dto.FamilyMemberDTO;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.User;
@@ -25,13 +25,17 @@ public class FamilyController {
     @PostMapping
     public ResponseEntity<?> createFamily(@RequestBody Map<String, String> body) {
         User currentUser = securityService.getCurrentUser();
-
-        if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
-            return ResponseEntity.status(403)
-                    .body(new ErrorResponse("Solo los administradores pueden crear una familia."));
+        if (currentUser == null) {
+            return ResponseEntity.status(401)
+                    .body(new ErrorResponse("Usuario no autenticado o token inválido."));
         }
 
         String name = body.get("name");
+        if (name == null || name.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse("El nombre de la familia no puede estar vacío."));
+        }
+
         Family created = familyService.createFamily(name, currentUser);
 
         List<FamilyMemberDTO> membersDTO = created.getMembers().stream()
@@ -46,6 +50,7 @@ public class FamilyController {
 
         return ResponseEntity.ok(dto);
     }
+
 
 
 }

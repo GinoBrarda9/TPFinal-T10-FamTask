@@ -1,13 +1,13 @@
 package com.team10.famtask.dto;
 
-import lombok.Data;
+import java.time.LocalDateTime;
 
-@Data
-public class InvitationResponseDTO {
-    private Long id;
-    private String familyName;
-    private String invitedUserName;
-    private String invitedUserEmail;
-    private String role;
-    private String status;
-}
+public record InvitationResponseDTO(
+        Long id,
+        String familyName,
+        String invitedUserName,
+        String invitedUserEmail,
+        String role,
+        String status,
+        LocalDateTime createdAt
+) {}

@@ -85,8 +85,7 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of("error", "Credenciales inválidas."));
         }
 
-        // ✅ Generar token real con JwtService
-        String token = jwtService.generateToken(user.getDni(), user.getEmail(), user.getRole(), user.getName());
+        String token = jwtService.generateToken(user.getEmail(), user.getDni(), user.getRole(), user.getName());
 
         return ResponseEntity.ok(Map.of("token", token));
     }

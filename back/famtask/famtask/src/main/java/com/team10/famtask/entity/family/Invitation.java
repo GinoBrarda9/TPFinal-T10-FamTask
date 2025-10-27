@@ -1,11 +1,12 @@
 package com.team10.famtask.entity.family;
 
 import jakarta.persistence.*;
-import lombok.Data;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
-@Data
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "invitations")
 public class Invitation {
@@ -14,20 +15,24 @@ public class Invitation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "family_id", nullable = false)
+    // FK correcta a families.id
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "family_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_invitations_family"))
     private Family family;
 
-    @ManyToOne
-    @JoinColumn(name = "invited_user_id", nullable = false)
+    // FK a users.dni (si tu User tiene @Id String dni)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "invited_user_id", referencedColumnName = "dni", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_invitations_user"))
     private User invitedUser;
 
     @Column(nullable = false)
-    private String role; // rol que tendrá el usuario en la familia (ej: "USER")
+    private String role; // "ADMIN" | "USER" | "member", etc. (sin romper front)
 
     @Column(nullable = false)
-    private String status; // PENDING, ACCEPTED, REJECTED
+    private String status; // "PENDING" | "ACCEPTED" | "REJECTED"
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }

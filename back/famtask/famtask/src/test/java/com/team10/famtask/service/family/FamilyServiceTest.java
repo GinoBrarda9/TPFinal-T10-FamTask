@@ -2,7 +2,6 @@ package com.team10.famtask.service.family;
 
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.FamilyMember;
-import com.team10.famtask.entity.family.FamilyMemberId;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;

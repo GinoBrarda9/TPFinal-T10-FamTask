@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.ArrayList;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -39,13 +40,13 @@ class FamilyControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         // Usuarios para los tests
-        adminUser = Helper.createUser("40123456", "Admin Test", "admin@test.com");
-        adminUser.setRole("ADMIN");
-
-        normalUser = Helper.createUser("40123457", "User Test", "user@test.com");
-        normalUser.setRole("USER");
+        adminUser = Helper.createUser("40123456", "Admin Test", "admin@test.com", "ADMIN");
+        normalUser = Helper.createUser("40123457", "User Test", "user@test.com", "USER");
     }
 
+    // ======================
+    // Caso 1: Usuario sin rol ADMIN
+    // ======================
     @Test
     void createFamily_forbidden_forNonAdmin() throws Exception {
         // Simular usuario no-admin
@@ -62,6 +63,9 @@ class FamilyControllerTest {
         verify(familyService, never()).createFamily(any(), any());
     }
 
+    // ======================
+    // Caso 2: Usuario ADMIN
+    // ======================
     @Test
     void createFamily_success_forAdmin() throws Exception {
         // Simular usuario admin

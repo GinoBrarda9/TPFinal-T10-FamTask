@@ -1,53 +1,93 @@
 package com.team10.famtask.service.family;
 
 import com.team10.famtask.entity.family.*;
-import com.team10.famtask.repository.family.FamilyMemberRepository;
-import com.team10.famtask.repository.family.InvitationRepository;
-import org.springframework.http.HttpStatus;
+import com.team10.famtask.repository.family.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class InvitationService {
 
     private final InvitationRepository invitationRepository;
+    private final UserRepository userRepository;
+    private final FamilyRepository familyRepository;
     private final FamilyMemberRepository familyMemberRepository;
 
-    public InvitationService(InvitationRepository invitationRepository, FamilyMemberRepository familyMemberRepository) {
-        this.invitationRepository = invitationRepository;
-        this.familyMemberRepository = familyMemberRepository;
+    // =========================================================
+    // Crear invitación
+    // =========================================================
+    @Transactional
+    public Invitation createInvitation(User sender, Long familyId, String invitedEmail, String role) {
+     /*   // Verificamos que la familia exista realmente en la base
+        Family family = familyRepository.findById(familyId)
+                .orElseThrow(() -> new IllegalArgumentException("La familia especificada no existe en la base de datos"));
+
+        // Verificamos que el usuario invitado exista
+        User invitedUser = userRepository.findById(invitedUserDni)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario invitado no existe"));
+
+        // Creamos la invitación
+        Invitation invitation = Invitation.builder()
+                .family(family)
+                .invitedUser(invitedUser)
+                .role(role)
+                .status("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        // Guardamos y flusheamos para forzar inserción
+        return invitationRepository.saveAndFlush(invitation);
+    } */
+
+        // 1. Verificar que la familia exista
+        Family family = familyRepository.findById(familyId)
+                .orElseThrow(() -> new IllegalArgumentException("La familia especificada no existe."));
+
+        // 2. Verificar que el usuario invitado exista por email
+        User invitedUser = userRepository.findByEmail(invitedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario invitado no existe."));
+
+        // 3. Evitar invitaciones duplicadas
+        if (invitationRepository.existsByFamilyAndInvitedUser(family, invitedUser)) {
+            throw new IllegalStateException("Ya existe una invitación pendiente para este usuario en esta familia.");
+        }
+
+        // 4. Crear la invitación
+        Invitation invitation = Invitation.builder()
+                .family(family)
+                .invitedUser(invitedUser)
+                .role(role)
+                .status("PENDING")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Invitation saved = invitationRepository.saveAndFlush(invitation);
+
+        // 5. Inicializar relaciones para evitar LazyInitializationException
+        saved.getFamily().getName();
+        saved.getInvitedUser().getName();
+        saved.getInvitedUser().getEmail();
+
+        return saved;
     }
 
     @Transactional
-    public Invitation createInvitation(Family family, User invitedUser, String role) {
-        // Verificar si ya existe una invitación
-        invitationRepository.findByFamilyAndInvitedUser(family, invitedUser)
-                .ifPresent(inv -> {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe una invitación para este usuario.");
-                });
-
-        Invitation invitation = new Invitation();
-        invitation.setFamily(family);
-        invitation.setInvitedUser(invitedUser);
-        invitation.setRole(role);
-        invitation.setStatus("PENDING");
-        invitation.setCreatedAt(LocalDateTime.now());
-
-        return invitationRepository.save(invitation);
-    }
-
-    @Transactional
-    public Invitation respondInvitation(Long invitationId, boolean accept) {
+    public Invitation respondInvitation(Long invitationId, boolean accept, User currentUser) {
         Invitation invitation = invitationRepository.findById(invitationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitación no encontrada"));
+                .orElseThrow(() -> new RuntimeException("Invitación no encontrada."));
 
-        if (!"PENDING".equalsIgnoreCase(invitation.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La invitación ya fue respondida");
+        // Validar que la invitación pertenece al usuario actual
+        if (!invitation.getInvitedUser().getDni().equals(currentUser.getDni())) {
+            throw new IllegalStateException("No estás autorizado para responder esta invitación.");
+        }
+
+        if (!"PENDING".equals(invitation.getStatus())) {
+            throw new IllegalStateException("La invitación ya fue respondida.");
         }
 
         if (accept) {
@@ -56,34 +96,71 @@ public class InvitationService {
             Family family = invitation.getFamily();
             User invitedUser = invitation.getInvitedUser();
 
-            FamilyMember member = family.getMembers().stream()
-                    .filter(m -> m.getUser().getDni().equals(invitedUser.getDni()))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        FamilyMember newMember = FamilyMember.builder()
-                                .id(new FamilyMemberId(invitedUser.getDni(), family.getId()))
-                                .user(invitedUser)
-                                .family(family)
-                                .role(invitation.getRole() != null ? invitation.getRole() : "member")
-                                .joinedAt(LocalDateTime.now())
-                                .build();
-                        family.addMember(newMember);
-                        return newMember;
-                    });
+            FamilyMemberId memberId = new FamilyMemberId(invitedUser.getDni(), family.getId());
+            FamilyMember member = new FamilyMember(
+                    memberId,
+                    invitedUser,
+                    family,
+                    invitation.getRole(),
+                    LocalDateTime.now()
+            );
 
-            if (invitation.getRole() != null) {
-                member.setRole(invitation.getRole());
-            }
+            familyMemberRepository.save(member);
+        } else {
+            invitation.setStatus("REJECTED");
+        }
 
+        Invitation saved = invitationRepository.save(invitation);
+
+        // Forzar carga de relaciones para evitar LazyInitializationException
+        saved.getFamily().getName();
+        saved.getInvitedUser().getName();
+        saved.getInvitedUser().getEmail();
+
+        return saved;
+    }
+
+
+    // =========================================================
+    // Responder invitación (aceptar / rechazar)
+    // =========================================================
+   /* @Transactional
+    public Invitation respondInvitation(Long invitationId, boolean accept) {
+        Invitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new RuntimeException("Invitación no encontrada"));
+
+        if (!"PENDING".equals(invitation.getStatus())) {
+            throw new IllegalStateException("La invitación ya fue respondida");
+        }
+
+        if (accept) {
+            invitation.setStatus("ACCEPTED");
+
+            Family family = invitation.getFamily();
+            User invitedUser = invitation.getInvitedUser();
+
+            FamilyMemberId memberId = new FamilyMemberId(invitedUser.getDni(), family.getId());
+            FamilyMember member = new FamilyMember(
+                    memberId,
+                    invitedUser,
+                    family,
+                    invitation.getRole(),
+                    LocalDateTime.now()
+            );
+
+            familyMemberRepository.save(member);
         } else {
             invitation.setStatus("REJECTED");
         }
 
         return invitationRepository.save(invitation);
     }
-
-
-    public List<Invitation> getPendingInvitations(User user) {
-        return invitationRepository.findByInvitedUserAndStatus(user, "PENDING");
+*/
+    // =========================================================
+    // Invitaciones pendientes para un usuario
+    // =========================================================
+    @Transactional(readOnly = true)
+    public List<Invitation> getPendingInvitations(User invitedUser) {
+        return invitationRepository.findByInvitedUserAndStatus(invitedUser, "PENDING");
     }
 }

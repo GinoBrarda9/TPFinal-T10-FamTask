@@ -1,5 +1,6 @@
 package com.team10.famtask.entity.family;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ public class FamilyMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("userDni") // vincula el campo de FamilyMemberId.userDni
     @JoinColumn(name = "user_dni")
+    @JsonBackReference
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
