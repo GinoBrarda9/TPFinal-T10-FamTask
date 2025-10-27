@@ -2,7 +2,7 @@ package com.team10.famtask.service.home;
 
 import com.team10.famtask.dto.FamilyMemberDTO;
 import com.team10.famtask.dto.HomePageResponseDTO;
-import com.team10.famtask.entity.calendar.Event;
+import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;

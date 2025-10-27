@@ -1,6 +1,6 @@
 package com.team10.famtask.dto;
 
-import com.team10.famtask.entity.calendar.Event;
+import com.team10.famtask.event.entity.Event;
 import java.util.List;
 
 public record HomePageResponseDTO(
