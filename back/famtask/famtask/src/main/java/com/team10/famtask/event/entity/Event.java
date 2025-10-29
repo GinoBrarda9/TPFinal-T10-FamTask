@@ -25,11 +25,11 @@ public class Event {
     private String color;
     private boolean allDay;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "family_id", nullable = true) //
     private Family family;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumns({
             @JoinColumn(name = "member_user_dni", referencedColumnName = "user_dni"),
             @JoinColumn(name = "member_family_id", referencedColumnName = "family_id")
