@@ -6,7 +6,7 @@ import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;
-import com.team10.famtask.repository.calendar.EventRepository;
+import com.team10.famtask.event.repository.EventRepository;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,7 @@ public class HomePageService {
 
         // 🔹 Eventos
         List<Event> upcomingEvents = eventRepository
-                .findByFamilyIdAndStartAfterOrderByStartAsc(family.getId(), LocalDateTime.now());
+                .findByFamily(family);
 
         return new HomePageResponseDTO(family.getName(), members, upcomingEvents);
     }
