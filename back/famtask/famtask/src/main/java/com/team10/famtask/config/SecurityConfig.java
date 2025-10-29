@@ -45,6 +45,8 @@ public class SecurityConfig {
                         // 👇 Reglas específicas
                         .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/families/**").authenticated()
+                        .requestMatchers("/api/events/**").authenticated()
+
 
                         // Usuarios
                         .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
