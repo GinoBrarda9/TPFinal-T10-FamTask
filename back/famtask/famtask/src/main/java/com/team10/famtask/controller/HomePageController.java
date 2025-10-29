@@ -9,18 +9,22 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/homepage")
-@RequiredArgsConstructor
 public class HomePageController {
 
-    private final HomePageService homePageService;
     private final JwtService jwtService;
+    private final HomePageService homePageService; // el tuyo
+
+    public HomePageController(JwtService jwtService, HomePageService homePageService) {
+        this.jwtService = jwtService;
+        this.homePageService = homePageService;
+    }
 
     @GetMapping
     public ResponseEntity<HomePageResponseDTO> getHomePage(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.replace("Bearer ", "");
-        String userEmail = jwtService.extractUsername(token);
-
-        HomePageResponseDTO response = homePageService.getHomePageData(userEmail);
-        return ResponseEntity.ok(response);
+        String dni = jwtService.extractDni(token); // 👈 DNI del JWT
+        HomePageResponseDTO dto = homePageService.getHomePageData(dni); // el service debe esperar DNI
+        return ResponseEntity.ok(dto);
     }
 }
+

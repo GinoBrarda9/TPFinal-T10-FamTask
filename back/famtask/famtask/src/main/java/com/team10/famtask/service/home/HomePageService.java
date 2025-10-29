@@ -8,7 +8,9 @@ import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.event.repository.EventRepository;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
+import com.team10.famtask.repository.family.FamilyRepository;
 import com.team10.famtask.repository.family.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,12 +25,12 @@ import java.util.List;
 public class HomePageService {
 
     private final UserRepository userRepository;
-    private final FamilyMemberRepository familyMemberRepository;
+    private final FamilyRepository familyRepository;
     private final EventRepository eventRepository;
 
-    public HomePageResponseDTO getHomePageData(String email) {
-        // 🔹 Buscar usuario
-        User user = userRepository.findByEmail(email)
+
+    public HomePageResponseDTO getHomePageData(String dni) {
+        User user = userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         // 🔹 Buscar la membresía del usuario en alguna familia
@@ -52,7 +54,21 @@ public class HomePageService {
         // 🔹 Eventos
         List<Event> upcomingEvents = eventRepository
                 .findByFamily(family);
+        Family family = familyRepository.findByMemberFetchAll(dni)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User has no family"));
 
-        return new HomePageResponseDTO(family.getName(), members, upcomingEvents);
+        List<FamilyMemberDTO> members = family.getMembers().stream()
+                .map(m -> new FamilyMemberDTO(
+                        m.getUser().getDni(),
+                        m.getUser().getName(),
+                        m.getUser().getEmail(),
+                        m.getRole()))
+                .toList();
+
+        List<Event> upcoming = eventRepository
+                .findByFamilyIdAndStartAfterOrderByStartAsc(family.getId(), LocalDateTime.now());
+
+        return new HomePageResponseDTO(family.getId(),family.getName(), members, upcoming);
     }
+
 }

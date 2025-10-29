@@ -38,7 +38,8 @@ public class JwtService {
 
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(email) // 'sub' = email
+                .setSubject(dni)               // ← AHORA EL SUB ES EL DNI
+                .claim("role", role)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -61,10 +62,7 @@ public class JwtService {
         return extractAllClaims(token).get("dni", String.class);
     }
 
-    public boolean isTokenValid(String token, String email) {
-        final String username = extractUsername(token);
-        return username.equals(email) && !isTokenExpired(token);
-    }
+
 
     // ✅ Nueva sobrecarga, para validar solo la estructura y expiración del token
     public boolean isTokenValid(String token) {

@@ -24,45 +24,56 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+        final String jwt = authHeader.substring(7);
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtService.isTokenValid(jwt, userEmail)) {
-                String role = jwtService.extractRole(jwt);
+        // subject = DNI (si así generaste el token)
+        final String subject = jwtService.extractUsername(jwt);
+        final String dni = jwtService.extractDni(jwt);
+        final String role = jwtService.extractRole(jwt);
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userEmail,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        // DEBUG opcional
+        System.out.println("=== JWT FILTER === " + request.getRequestURI());
+        System.out.println("SUB: " + subject + " | DNI: " + dni + " | ROLE: " + role);
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }
+        if (subject != null && SecurityContextHolder.getContext().getAuthentication() == null
+                && jwtService.isTokenValid(jwt)) {
+
+            String effRole = (role == null || role.isBlank()) ? "USER" : role.toUpperCase();
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            dni, // 👈 principal = DNI
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + effRole))
+                    );
+
+            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            System.out.println("Authorities: " + auth.getAuthorities());
         }
 
         filterChain.doFilter(request, response);
     }
 
+
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        return path.startsWith("/api/auth/");
+        boolean shouldSkip = path.startsWith("/api/auth/");
+        if (shouldSkip) {
+            System.out.println("⏭️  Saltando filtro JWT para: " + path);
+        }
+        return shouldSkip;
     }
 }

@@ -52,10 +52,8 @@ public class InvitationService {
         User invitedUser = userRepository.findByEmail(invitedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("El usuario invitado no existe."));
 
-        // 3. Evitar invitaciones duplicadas
-        if (invitationRepository.existsByFamilyAndInvitedUser(family, invitedUser)) {
-            throw new IllegalStateException("Ya existe una invitación pendiente para este usuario en esta familia.");
-        }
+
+
 
         // 4. Crear la invitación
         Invitation invitation = Invitation.builder()
@@ -160,7 +158,7 @@ public class InvitationService {
     // Invitaciones pendientes para un usuario
     // =========================================================
     @Transactional(readOnly = true)
-    public List<Invitation> getPendingInvitations(User invitedUser) {
-        return invitationRepository.findByInvitedUserAndStatus(invitedUser, "PENDING");
+    public List<Invitation> getPendingInvitations(User currentUser) {
+        return invitationRepository.findPendingWithJoins(currentUser, "PENDING");
     }
 }

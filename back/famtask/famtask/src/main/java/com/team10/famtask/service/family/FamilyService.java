@@ -60,9 +60,10 @@ public class FamilyService {
 
 
     @Transactional(readOnly = true)
-    public Family getFamilyById(Long familyId) {
-        return familyRepository.findById(familyId)
-                .orElseThrow(() -> new ResponseStatusException(FORBIDDEN, "Familia no encontrada"));
+    public Family findByMember(User user) {
+        // trae familia + members + user de cada member en una sola query
+        return familyMemberRepository.findByMemberFetchAll(user.getDni()).orElse(null);
     }
+
 
 }
