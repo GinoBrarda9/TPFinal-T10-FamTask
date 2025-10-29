@@ -20,7 +20,7 @@ public class Family {
     @Column(nullable = false)
     private String name;
 
-    @OneToMany(mappedBy = "family", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "family", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FamilyMember> members = new ArrayList<>();
 
     public void addMember(FamilyMember member) {

@@ -2,11 +2,11 @@ package com.team10.famtask.service.home;
 
 import com.team10.famtask.dto.FamilyMemberDTO;
 import com.team10.famtask.dto.HomePageResponseDTO;
-import com.team10.famtask.entity.calendar.Event;
+import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;
-import com.team10.famtask.repository.calendar.EventRepository;
+import com.team10.famtask.event.repository.EventRepository;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;
 import com.team10.famtask.repository.family.UserRepository;
@@ -33,6 +33,27 @@ public class HomePageService {
         User user = userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        // 🔹 Buscar la membresía del usuario en alguna familia
+        FamilyMember membership = familyMemberRepository.findById_UserDni(user.getDni())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not part of any family"));
+
+        Family family = membership.getFamily();
+
+        // 🔹 Miembros
+        List<FamilyMemberDTO> members = family.getMembers() != null
+                ? family.getMembers().stream()
+                .map(member -> new FamilyMemberDTO(
+                        member.getUser().getDni(),
+                        member.getUser().getName(),
+                        member.getUser().getEmail(),
+                        member.getRole()
+                ))
+                .toList()
+                : Collections.emptyList();
+
+        // 🔹 Eventos
+        List<Event> upcomingEvents = eventRepository
+                .findByFamily(family);
         Family family = familyRepository.findByMemberFetchAll(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User has no family"));
 

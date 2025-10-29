@@ -42,6 +42,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html").permitAll()
 
+                        // 👇 Reglas específicas
+                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/families/**").authenticated()
+                        .requestMatchers("/api/events/**").authenticated()
 
                         .requestMatchers("/api/homepage","/api/homepage/**").permitAll()
                         .requestMatchers("/api/families/**").hasAnyRole("USER","ADMIN")
