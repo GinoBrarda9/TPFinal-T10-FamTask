@@ -1,5 +1,6 @@
 package com.team10.famtask.service.profile;
 
+import com.team10.famtask.dto.profile.ContactInfoDTO;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.entity.profile.ContactInfo;
 import com.team10.famtask.entity.profile.EmergencyContact;
@@ -18,20 +19,42 @@ public class ContactInfoService {
     private final ContactInfoRepository repository;
     private final UserRepository userRepository;
 
-    public ContactInfo get(String email) {
-        User user = userRepository.findByEmail(email)
+    public ContactInfoDTO createOrUpdateByDni(String dni, ContactInfo data) {
+
+        User user = userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        return repository.findByUserDni(user.getDni())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Emergency contact not found"));
+        ContactInfo ci = repository.findByUser_Dni(dni)
+                .orElse(ContactInfo.builder().user(user).build());
+
+        ci.setPhone(data.getPhone());
+        ci.setAddress(data.getAddress());
+        ci.setCity(data.getCity());
+        ci.setProvince(data.getProvince());
+        ci.setCountry(data.getCountry());
+
+        ContactInfo saved = repository.save(ci);
+
+        return new ContactInfoDTO(
+                saved.getPhone(),
+                saved.getAddress(),
+                saved.getCity(),
+                saved.getProvince(),
+                saved.getCountry()
+        );
     }
 
-    public ContactInfo createOrUpdate(String email, ContactInfo data) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    public ContactInfoDTO get(String dni) {
+        ContactInfo info = repository.findByUser_Dni(dni)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
-        repository.findByUserDni(user.getDni()).ifPresent(existing -> data.setId(existing.getId()));
-        data.setUser(user);
-        return repository.save(data);
+        return new ContactInfoDTO(
+                info.getPhone(),
+                info.getAddress(),
+                info.getCity(),
+                info.getProvince(),
+                info.getCountry()
+        );
     }
+
 }

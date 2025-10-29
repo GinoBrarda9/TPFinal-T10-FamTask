@@ -35,10 +35,8 @@ public class EventService {
     @Transactional
     public Event createEvent(EventDTO dto) {
 
-        // ✅ Obtener usuario autenticado dentro del service
         User currentUser = securityService.getCurrentUser();
 
-        // ✅ Solo ADMIN puede crear eventos familiares
         if (dto.getFamilyId() != null && !"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo los administradores pueden crear eventos familiares.");
         }
@@ -46,13 +44,15 @@ public class EventService {
         Family family = null;
         FamilyMember member = null;
 
-        if (dto.getFamilyId() != null)
+        if (dto.getFamilyId() != null) {
             family = familyRepository.findById(dto.getFamilyId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Familia no encontrada."));
+        }
 
-        if (dto.getMemberDni() != null)
-            member = memberRepository.findById_UserDni(dto.getMemberDni())
+        if (dto.getMemberDni() != null) {
+            member = memberRepository.findByIdUserDni(dto.getMemberDni())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Miembro no encontrado."));
+        }
 
         Event event = Event.builder()
                 .title(dto.getTitle())
@@ -64,10 +64,12 @@ public class EventService {
                 .allDay(dto.isAllDay())
                 .family(family)
                 .assignedTo(member)
+                // ✅ al crear, ambos flags quedan en false (valor por defecto del primitivo)
+                // .reminderDayBeforeSent(false)
+                // .reminderHourBeforeSent(false)
                 .build();
 
         Event saved = eventRepository.save(event);
-
         googleCalendarService.syncEvent(saved);
 
         return saved;
@@ -83,7 +85,7 @@ public class EventService {
     }
 
     public List<Event> getMemberEvents(String dni) {
-        FamilyMember member = memberRepository.findById_UserDni(dni)
+        FamilyMember member = memberRepository.findByIdUserDni(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Miembro no encontrado."));
         return eventRepository.findByAssignedTo(member);
     }
@@ -93,9 +95,8 @@ public class EventService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
     }
 
-
     // =======================================================
-    // ✅ ACTUALIZAR EVENTO
+    // ✅ ACTUALIZAR (PATCH) EVENTO
     // =======================================================
     @Transactional
     public Event patchEvent(Long id, Map<String, Object> updates, User currentUser) {
@@ -103,40 +104,36 @@ public class EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
 
-        // ✅ Validación de permisos (igual que en update)
-        if (event.getFamily() != null) { // Evento familiar
-            if (!"ADMIN".equalsIgnoreCase(currentUser.getRole()))
+        // Permisos
+        if (event.getFamily() != null) { // Familiar
+            if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administradores pueden editar eventos familiares.");
-        } else { // Evento personal
+            }
+        } else { // Personal
             if (event.getAssignedTo() == null ||
-                    !event.getAssignedTo().getUser().getDni().equals(currentUser.getDni()))
+                    !event.getAssignedTo().getUser().getDni().equals(currentUser.getDni())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes editar este evento personal.");
+            }
         }
 
-        // ✅ Aplicar cambios solo a los campos presentes
-        if (updates.containsKey("title"))
-            event.setTitle((String) updates.get("title"));
+        // Guardamos el startTime anterior para detectar cambios
+        LocalDateTime oldStart = event.getStartTime();
 
-        if (updates.containsKey("description"))
-            event.setDescription((String) updates.get("description"));
+        // Aplicamos cambios
+        if (updates.containsKey("title"))       event.setTitle((String) updates.get("title"));
+        if (updates.containsKey("description")) event.setDescription((String) updates.get("description"));
+        if (updates.containsKey("startTime"))   event.setStartTime(LocalDateTime.parse((String) updates.get("startTime")));
+        if (updates.containsKey("endTime"))     event.setEndTime(LocalDateTime.parse((String) updates.get("endTime")));
+        if (updates.containsKey("location"))    event.setLocation((String) updates.get("location"));
+        if (updates.containsKey("color"))       event.setColor((String) updates.get("color"));
+        if (updates.containsKey("allDay"))      event.setAllDay((Boolean) updates.get("allDay"));
 
-        if (updates.containsKey("startTime"))
-            event.setStartTime(LocalDateTime.parse((String) updates.get("startTime")));
-
-        if (updates.containsKey("endTime"))
-            event.setEndTime(LocalDateTime.parse((String) updates.get("endTime")));
-
-        if (updates.containsKey("location"))
-            event.setLocation((String) updates.get("location"));
-
-        if (updates.containsKey("color"))
-            event.setColor((String) updates.get("color"));
-
-        if (updates.containsKey("allDay"))
-            event.setAllDay((Boolean) updates.get("allDay"));
+        if (oldStart != null && event.getStartTime() != null && !oldStart.equals(event.getStartTime())) {
+            event.setReminderDayBeforeSent(false);
+            event.setReminderHourBeforeSent(false);
+        }
 
         Event updated = eventRepository.save(event);
-
         googleCalendarService.updateEvent(updated);
 
         return updated;
@@ -150,11 +147,10 @@ public class EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado."));
 
-        // Validación de permisos
-        if (event.getFamily() != null) { // Evento familiar
+        if (event.getFamily() != null) { // Familiar
             if (!"ADMIN".equalsIgnoreCase(currentUser.getRole()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administradores pueden eliminar eventos familiares.");
-        } else { // Evento personal
+        } else { // Personal
             if (event.getAssignedTo() == null ||
                     !event.getAssignedTo().getUser().getDni().equals(currentUser.getDni()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes eliminar este evento personal.");

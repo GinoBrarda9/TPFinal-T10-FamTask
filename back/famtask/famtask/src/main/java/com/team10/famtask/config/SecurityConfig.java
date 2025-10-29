@@ -42,25 +42,31 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html").permitAll()
 
-                        // 👇 Reglas específicas
+                        // ✅ Contact Info permitido para USER / ADMIN / MEMBER
+                        .requestMatchers("/api/profile/contact-info/**")
+                        .hasAnyRole("USER","ADMIN","MEMBER")
+
+                        // ✅ Families
                         .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/families/**").authenticated()
+                        .requestMatchers("/api/families/**").authenticated()
+
+                        // ✅ Events
                         .requestMatchers("/api/events/**").authenticated()
 
-                        .requestMatchers("/api/homepage","/api/homepage/**").permitAll()
-                        .requestMatchers("/api/families/**").hasAnyRole("USER","ADMIN")
+                        // ✅ Homepage
+                        .requestMatchers("/api/homepage/**").permitAll()
+
+                        // ✅ Invitations
                         .requestMatchers("/api/invitations/**").authenticated()
 
-
-
-                        // Usuarios
+                        // ✅ Users
                         .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/users/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
+                        .requestMatchers("/api/users/**").authenticated()
 
                         .anyRequest().authenticated()
                 )
+
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
@@ -81,7 +87,6 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization","Content-Type"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 

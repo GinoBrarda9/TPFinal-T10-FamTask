@@ -1,5 +1,6 @@
 package com.team10.famtask.entity.profile;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.team10.famtask.entity.family.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,5 +25,6 @@ public class ContactInfo {
 
     @OneToOne
     @JoinColumn(name = "user_dni", nullable = false, unique = true)
+    @JsonIgnore
     private User user;
 }

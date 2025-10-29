@@ -10,16 +10,8 @@ import java.util.Optional;
 
 public interface FamilyMemberRepository extends JpaRepository<FamilyMember, FamilyMemberId> {
 
-    boolean existsById_UserDniAndId_FamilyId(String userDni, Long familyId);
-    @Query("""
-  select f
-  from Family f
-    join fetch f.members fm
-    join fetch fm.user u
-  where u.dni = :dni
-""")
-    Optional<Family> findByMemberFetchAll(String dni);
+    Optional<FamilyMember> findByIdUserDni(String dni);
 
-
+    boolean existsByIdUserDniAndIdFamilyId(String userDni, Long familyId);
 
 }
