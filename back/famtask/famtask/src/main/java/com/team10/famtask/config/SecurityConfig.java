@@ -42,9 +42,12 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html").permitAll()
 
-                        // 👇 Reglas específicas
-                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/families/**").authenticated()
+
+                        .requestMatchers("/api/homepage","/api/homepage/**").permitAll()
+                        .requestMatchers("/api/families/**").hasAnyRole("USER","ADMIN")
+                        .requestMatchers("/api/invitations/**").authenticated()
+
+
 
                         // Usuarios
                         .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
@@ -74,8 +77,11 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization","Content-Type"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+
+
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

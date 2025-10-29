@@ -29,18 +29,23 @@ public class InvitationController {
     // =========================================================
     // Crear invitación
     // =========================================================
+    // com.team10.famtask.controller.InvitationController
     @PostMapping
     public ResponseEntity<InvitationResponseDTO> createInvitation(
-            @RequestBody Map<String, String> body
+            @RequestBody InvitationRequestDTO req
     ) {
-        User sender = securityService.getCurrentUser();
-        Long familyId = Long.valueOf(body.get("familyId"));
-        String invitedUserDni = body.get("invitedUserDni");
-        String role = body.get("role");
+        System.out.println("[INV] hit controller");
 
-        Invitation invitation = invitationService.createInvitation(sender, familyId, invitedUserDni, role);
-        return ResponseEntity.ok(InvitationMapper.toResponseDTO(invitation));
+        User sender = securityService.getCurrentUser();
+        Long familyId = req.familyId();
+        String invitedEmail = req.invitedUserEmail();
+        String role = req.role();
+
+        // (Ejemplo) si tu service buscaba por email:
+        Invitation inv = invitationService.createInvitation(sender, familyId, invitedEmail, role);
+        return ResponseEntity.ok(InvitationMapper.toResponseDTO(inv));
     }
+
 
 
     // =========================================================

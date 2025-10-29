@@ -1,16 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import jwt_decode from "jwt-decode";
+import { useState, useEffect } from "react";
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userName, setUserName] = useState("Usuario");
+  const [userDni, setUserDni] = useState("");
   const [showCreateFamilyModal, setShowCreateFamilyModal] = useState(false);
-  const [familyMembers, setFamilyMembers] = useState([]);
-  const [newMember, setNewMember] = useState({ nombre: "", rol: "" });
-  const [activities, setActivities] = useState([
+  const [showInviteMemberModal, setShowInviteMemberModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [familyName, setFamilyName] = useState("");
+  const [createdFamilyId, setCreatedFamilyId] = useState(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitations, setInvitations] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [family, setFamily] = useState(null); // { id, name, members: [...] }
+  const [familyMembers, setFamilyMembers] = useState([]); // [{ dni, name, role }]
+  const [creatingFamily, setCreatingFamily] = useState(false);
+  const [familyError, setFamilyError] = useState("");
+  const [loadingFamily, setLoadingFamily] = useState(false);
+
+  const [activities] = useState([
     {
       id: 1,
       type: "task",
@@ -35,67 +44,180 @@ export default function HomePage() {
       assignee: "Pedro",
       dueDate: "Jueves",
     },
-    {
-      id: 4,
-      type: "task",
-      title: "Limpiar la casa",
-      status: "in-progress",
-      assignee: "Ana",
-      dueDate: "Hoy",
-    },
-    {
-      id: 5,
-      type: "event",
-      title: "Reunión familiar",
-      status: "scheduled",
-      assignee: "Todos",
-      dueDate: "Viernes",
-    },
   ]);
 
-  const handleAddActivity = () => {
-    const newActivity = {
-      id: activities.length + 1,
-      type: "task",
-      title: "Nueva actividad",
-      status: "pending",
-      assignee: userName,
-      dueDate: "Hoy",
-    };
-    setActivities([...activities, newActivity]);
-  };
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        if (token.split(".").length === 3) {
+          const base64Url = token.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join("")
+          );
+          const decoded = JSON.parse(jsonPayload);
+          setUserName(decoded.name || "Usuario");
+          setUserDni(decoded.sub || decoded.dni);
+        }
+      } catch (err) {
+        console.warn("No se pudo decodificar token:", err);
+      }
+    }
+  }, []);
 
-  const handleAddMember = () => {
-    if (newMember.nombre.trim() && newMember.rol.trim()) {
-      setFamilyMembers([...familyMembers, { ...newMember, id: Date.now() }]);
-      setNewMember({ nombre: "", rol: "" });
+  useEffect(() => {
+    if (userDni) fetchInvitations();
+    fetchFamily();
+  }, [userDni]);
+
+  const fetchInvitations = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !userDni) return;
+
+    try {
+      const resp = await fetch(
+        "http://localhost:8080/api/invitations/pending",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (resp.ok) {
+        const data = await resp.json();
+        setInvitations(data || []);
+        setNotificationCount(
+          (data || []).filter((inv) => inv.status === "PENDING").length
+        );
+      } else if (resp.status === 404) {
+        setInvitations([]);
+        setNotificationCount(0);
+      }
+    } catch (e) {
+      console.error("Error al cargar invitaciones:", e);
     }
   };
 
-  const handleRemoveMember = (id) => {
-    setFamilyMembers(familyMembers.filter((member) => member.id !== id));
-  };
-
-  const handleCreateFamily = async () => {
-    if (familyMembers.length === 0) {
-      alert("Debes agregar al menos un miembro a la familia");
+  const createFamily = async () => {
+    setFamilyError("");
+    if (!familyName.trim()) {
+      setFamilyError("Ingresá un nombre para la familia.");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setFamilyError("No hay sesión activa.");
       return;
     }
 
     try {
-      const token = localStorage.getItem("token");
+      setCreatingFamily(true);
+      const resp = await fetch("http://localhost:8080/api/families", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: familyName.trim() }),
+      });
 
-      if (!token) {
-        alert(
-          "No hay token de autenticación. Por favor inicia sesión nuevamente."
-        );
-        navigate("/");
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "No se pudo crear la familia.");
+      }
+
+      // Éxito: guardo id, cierro y abro el modal de invitación
+      const data = await resp.json();
+      setCreatedFamilyId(data.id);
+      setShowCreateFamilyModal(false);
+      setShowInviteMemberModal(true);
+      setFamilyName("");
+      await fetchFamily();
+    } catch (e) {
+      setFamilyError(e.message);
+    } finally {
+      setCreatingFamily(false);
+    }
+  };
+
+  const fetchFamily = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const resp = await fetch("http://localhost:8080/api/homepage", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("FETCH FAMILY - Status:", resp.status);
+
+      if (resp.status === 401) {
+        console.warn("Sesión expirada");
+        localStorage.removeItem("token");
         return;
       }
 
-      console.log("Creando familia con:", familyMembers);
-      console.log("Token:", token ? "presente" : "ausente");
+      if (resp.status === 404) {
+        console.log("Usuario no pertenece a ninguna familia");
+        setFamily(null);
+        setFamilyMembers([]);
+        return;
+      }
 
+      if (!resp.ok) {
+        console.warn("Error obteniendo familia:", resp.status);
+        setFamily(null);
+        setFamilyMembers([]);
+        return;
+      }
+
+      const data = await resp.json();
+      console.log("FETCH FAMILY - DATA recibida:", data);
+
+      const normalized = {
+        id: data.familyId ?? data.id ?? null,
+        name: data.familyName ?? data.name ?? "Mi familia",
+        members: Array.isArray(data.members)
+          ? data.members.map((m) => ({
+              dni: m.dni ?? m.userDni ?? m.id ?? "",
+              name: m.name ?? m.userName ?? "—",
+              role: String(m.role ?? m.userRole ?? "").toUpperCase(),
+            }))
+          : [],
+      };
+
+      console.log("FETCH FAMILY - Normalized:", normalized);
+
+      setFamily(normalized);
+      setFamilyMembers(normalized.members || []);
+      if (normalized.id) {
+        setCreatedFamilyId(normalized.id);
+      }
+
+      console.log("FETCH FAMILY - createdFamilyId guardado:", normalized.id);
+    } catch (e) {
+      console.error("Error al cargar familia:", e);
+      setFamily(null);
+      setFamilyMembers([]);
+    }
+  };
+
+  const handleCreateFamily = async () => {
+    if (!familyName.trim()) {
+      alert("Por favor ingresa un nombre para la familia");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("No hay token de autenticación");
+      return;
+    }
+
+    try {
       const response = await fetch("http://localhost:8080/api/families", {
         method: "POST",
         headers: {
@@ -103,32 +225,114 @@ export default function HomePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          members: familyMembers,
+          name: familyName,
         }),
       });
 
-      console.log("Response status:", response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log("Familia creada:", data);
+        setCreatedFamilyId(data.id);
         alert("¡Familia creada exitosamente!");
         setShowCreateFamilyModal(false);
-        setFamilyMembers([]);
-      } else if (response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Error 403:", errorData);
-        alert("No tienes permisos para crear una familia. Verifica tu sesión.");
-      } else if (response.status === 401) {
-        alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
-        localStorage.removeItem("token");
-        navigate("/");
+        setShowInviteMemberModal(true);
+        setFamilyName("");
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Error al crear familia:", errorData);
         alert(
-          `Error al crear la familia: ${
-            errorData.message || "Error desconocido"
+          `Error al crear familia: ${errorData.message || "Error desconocido"}`
+        );
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      alert("Error de conexión con el servidor");
+    }
+  };
+
+  const handleSendInvitation = async () => {
+    if (!inviteEmail.trim()) {
+      alert("Por favor ingresa un email");
+      return;
+    }
+
+    const familyId = createdFamilyId ?? family?.id;
+    console.log("DEBUG - createdFamilyId:", createdFamilyId);
+    console.log("DEBUG - family?.id:", family?.id);
+    console.log("DEBUG - familyId final:", familyId);
+
+    if (!familyId) {
+      alert("No hay una familia seleccionada");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("No hay token de autenticación");
+      return;
+    }
+
+    // Debug completo
+    console.log("=== DEBUG INVITACIÓN ===");
+    console.log("Token:", token.substring(0, 50) + "...");
+    console.log("Family ID:", createdFamilyId);
+    console.log("Email a invitar:", inviteEmail);
+
+    const payload = {
+      familyId,
+      invitedUserEmail: inviteEmail.trim(),
+      role: "USER",
+    };
+
+    console.log("Payload:", JSON.stringify(payload));
+
+    try {
+      const response = await fetch("http://localhost:8080/api/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+
+      // Intentar leer la respuesta como texto primero
+      const responseText = await response.text();
+      console.log("Response body (text):", responseText);
+
+      let errorData = {};
+      try {
+        errorData = JSON.parse(responseText);
+        console.log("Response body (parsed):", errorData);
+      } catch (e) {
+        console.log("No se pudo parsear como JSON");
+      }
+
+      if (response.ok) {
+        alert("¡Invitación enviada exitosamente!");
+        setInviteEmail("");
+      } else if (response.status === 403) {
+        alert(
+          `⛔ Acceso denegado (403): ${
+            errorData.message ||
+            errorData.error ||
+            "No tienes permisos para enviar invitaciones"
+          }`
+        );
+      } else if (response.status === 401) {
+        alert(
+          "Tu sesión ha expirado (401). Por favor inicia sesión nuevamente."
+        );
+        localStorage.removeItem("token");
+        window.location.reload();
+      } else {
+        alert(
+          `Error ${response.status}: ${
+            errorData.message || errorData.error || "Error desconocido"
           }`
         );
       }
@@ -138,23 +342,32 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
+  const handleRespondInvitation = async (invitationId, accept) => {
     const token = localStorage.getItem("token");
-    if (token) {
-      try {
-        if (token.split(".").length === 3) {
-          const decoded = jwt_decode(token);
-          setUserName(decoded.name || "Usuario");
-        } else {
-          console.warn(
-            "Token no es un JWT decodable, usando nombre por defecto"
-          );
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/invitations/${invitationId}/respond?accept=${accept}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
         }
-      } catch (err) {
-        console.warn("No se pudo decodificar token:", err);
+      );
+
+      if (response.ok) {
+        alert(accept ? "¡Invitación aceptada!" : "Invitación rechazada");
+        fetchInvitations();
+        if (accept) fetchFamily();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Error: ${errorData.message || "Error desconocido"}`);
       }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error de conexión");
     }
-  }, []);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -178,8 +391,21 @@ export default function HomePage() {
     return type === "task" ? "✓" : "📅";
   };
 
+  const getInvitationStatusColor = (status) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
+      case "ACCEPTED":
+        return "bg-green-100 text-green-800";
+      case "REJECTED":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   return (
-    <div className="min-h-screen w-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen w-full bg-gray-50 flex flex-col">
       {/* SIDEBAR */}
       <div
         className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${
@@ -211,10 +437,7 @@ export default function HomePage() {
           </div>
 
           <nav className="space-y-2 flex-1">
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 bg-amber-50 text-amber-600 rounded-lg"
-            >
+            <button className="w-full flex items-center gap-3 p-3 bg-amber-50 text-amber-600 rounded-lg">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -230,113 +453,7 @@ export default function HomePage() {
                 />
               </svg>
               <span>Inicio</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span>Calendario</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-              <span>Tareas</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-              <span>Familia</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-              <span>Notificaciones</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              <span>Configuración</span>
-            </a>
+            </button>
           </nav>
 
           <div className="pt-4 border-t">
@@ -364,7 +481,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* OVERLAY */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -400,7 +516,14 @@ export default function HomePage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-gray-100 rounded-full relative">
+          {/* Botón de Notificaciones */}
+          <button
+            onClick={() => {
+              setShowNotificationsModal(true);
+              fetchInvitations();
+            }}
+            className="p-2 hover:bg-gray-100 rounded-full relative"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5"
@@ -415,7 +538,11 @@ export default function HomePage() {
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
               />
             </svg>
-            <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            {notificationCount > 0 && (
+              <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
+                {notificationCount}
+              </span>
+            )}
           </button>
 
           <div className="relative">
@@ -434,10 +561,7 @@ export default function HomePage() {
             {menuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
                 <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate("/profile");
-                  }}
+                  onClick={() => setMenuOpen(false)}
                   className="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition"
                 >
                   Ver perfil
@@ -456,7 +580,6 @@ export default function HomePage() {
 
       {/* MAIN */}
       <main className="flex-1 w-full flex flex-col">
-        {/* Welcome Section */}
         <div className="bg-gradient-to-r from-amber-400 to-yellow-500 shadow-lg p-8 text-white w-full">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
             ¡Hola, {userName}! 👋
@@ -466,83 +589,109 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Cards Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
-          {/* Card: Crear Familia */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-amber-100 hover:shadow-2xl transition-shadow">
-            <div className="flex flex-col items-center text-center h-full justify-between">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-8 w-8 text-purple-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2">Crear Familia</h3>
-                <p className="text-gray-600 mb-4">
-                  Invita a tus familiares y comienza a organizar juntos
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateFamilyModal(true)}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Crear Familia
-              </button>
+          {/* Card: Mi familia */}
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-amber-700">Mi familia</h3>
+              {family && (
+                <span className="text-sm text-gray-500">
+                  {familyMembers?.length ?? 0} miembro(s)
+                </span>
+              )}
             </div>
+
+            {/* Cargando */}
+            {loadingFamily ? (
+              <div className="flex items-center gap-2 text-gray-500">
+                <svg
+                  className="animate-spin h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                  />
+                  <path
+                    className="opacity-75"
+                    d="M4 12a8 8 0 018-8"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                </svg>
+                Cargando datos...
+              </div>
+            ) : family ? (
+              /* Hay familia: nombre + lista de miembros */
+              <>
+                <h4 className="text-lg font-semibold text-gray-800 mb-3">
+                  {family.name}
+                </h4>
+
+                {!familyMembers || familyMembers.length === 0 ? (
+                  <p className="text-gray-500">Aún no hay miembros.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {familyMembers.map((m) => (
+                      <li
+                        key={m.dni || m.email || m.name}
+                        className="py-2 flex items-center justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-800 truncate">
+                            {m.name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {m.dni || m.email}
+                          </p>
+                        </div>
+                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                          {(m.role || "MIEMBRO").toString().toUpperCase()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Acción rápida: invitar si ya hay familia */}
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      if (family?.id) setCreatedFamilyId(family.id);
+                      setShowInviteMemberModal(true);
+                    }}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                  >
+                    Invitar miembro
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* No pertenece a una familia: CTA crear */
+              <div className="text-center">
+                <p className="text-gray-600 mb-4">
+                  Aún no perteneces a una familia.
+                </p>
+                <button
+                  onClick={() => setShowCreateFamilyModal(true)}
+                  className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+                >
+                  Crear familia
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Card: Board de Actividades */}
           <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold">Board de Actividades</h3>
-              <button
-                onClick={handleAddActivity}
-                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nueva
-              </button>
             </div>
 
-            {/* Activities List */}
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {activities.map((activity) => (
                 <div
@@ -578,119 +727,123 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-6 pb-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-amber-100 hover:shadow-2xl transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                  />
-                </svg>
-              </div>
-              <span className="text-3xl font-bold text-gray-800">12</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800">
-              Tareas Pendientes
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">3 vencen hoy</p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-amber-100 hover:shadow-2xl transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-green-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <span className="text-3xl font-bold text-gray-800">5</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800">Eventos</h3>
-            <p className="text-sm text-gray-500 mt-1">Esta semana</p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-amber-100 hover:shadow-2xl transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-purple-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </div>
-              <span className="text-3xl font-bold text-gray-800">8</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800">
-              Notificaciones
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">Sin leer</p>
-          </div>
-        </div>
       </main>
 
       {/* Modal Crear Familia */}
       {showCreateFamilyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Header del Modal */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-purple-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Crear Familia
-                </h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Crear Familia
+              </h2>
+              <button
+                onClick={() => setShowCreateFamilyModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Cerrar"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nombre de la Familia
+                </label>
+                <input
+                  type="text"
+                  value={familyName}
+                  onChange={(e) => setFamilyName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") createFamily();
+                  }}
+                  placeholder="Ej: Familia García"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  disabled={creatingFamily}
+                />
               </div>
+
+              {familyError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {familyError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
+              <button
+                onClick={() => setShowCreateFamilyModal(false)}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                disabled={creatingFamily}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={createFamily}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={creatingFamily || !familyName.trim()}
+              >
+                {creatingFamily ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                      />
+                      <path
+                        className="opacity-75"
+                        d="M4 12a8 8 0 018-8"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                    </svg>
+                    Creando...
+                  </span>
+                ) : (
+                  "Crear"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Invitar Miembros */}
+      {showInviteMemberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Invitar Miembros
+              </h2>
               <button
                 onClick={() => {
-                  setShowCreateFamilyModal(false);
-                  setFamilyMembers([]);
-                  setNewMember({ nombre: "", rol: "" });
+                  setShowInviteMemberModal(false);
+                  setInviteEmail("");
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -711,192 +864,221 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Contenido del Modal */}
             <div className="p-6 space-y-6">
-              {/* Formulario para agregar miembro */}
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-5 border border-amber-200">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-amber-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                    />
-                  </svg>
-                  Agregar Miembro
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Nombre
-                    </label>
-                    <input
-                      type="text"
-                      value={newMember.nombre}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, nombre: e.target.value })
-                      }
-                      placeholder="Ej: María"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Rol
-                    </label>
-                    <select
-                      value={newMember.rol}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, rol: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="">Seleccionar rol</option>
-                      <option value="Padre/Madre">Padre/Madre</option>
-                      <option value="Hijo/Hija">Hijo/Hija</option>
-                      <option value="Abuelo/Abuela">Abuelo/Abuela</option>
-                      <option value="Tío/Tía">Tío/Tía</option>
-                      <option value="Otro">Otro</option>
-                    </select>
-                  </div>
+              {family && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    📤 Enviando invitación para:{" "}
+                    <span className="font-semibold">{family.name}</span>
+                  </p>
                 </div>
-                <button
-                  onClick={handleAddMember}
-                  className="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Agregar
-                </button>
-              </div>
+              )}
 
-              {/* Lista de miembros agregados */}
               <div>
-                <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-purple-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                  Miembros de la Familia ({familyMembers.length})
-                </h3>
-
-                {familyMembers.length === 0 ? (
-                  <div className="bg-gray-50 rounded-lg p-8 text-center">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-12 w-12 text-gray-400 mx-auto mb-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                      />
-                    </svg>
-                    <p className="text-gray-500">
-                      No hay miembros agregados aún
-                    </p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Agrega al menos un miembro para crear la familia
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {familyMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold">
-                            {member.nombre.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-800">
-                              {member.nombre}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {member.rol}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email del usuario
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="usuario@ejemplo.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
               </div>
+
+              <button
+                onClick={handleSendInvitation}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                Enviar Invitación
+              </button>
             </div>
 
-            {/* Footer del Modal */}
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
+            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-2xl">
               <button
                 onClick={() => {
-                  setShowCreateFamilyModal(false);
-                  setFamilyMembers([]);
-                  setNewMember({ nombre: "", rol: "" });
+                  setShowInviteMemberModal(false);
+                  setInviteEmail("");
                 }}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
               >
-                Cancelar
+                Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Notificaciones */}
+      {showNotificationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Invitaciones
+                </h2>
+                {notificationCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                    {notificationCount} pendientes
+                  </span>
+                )}
+              </div>
               <button
-                onClick={handleCreateFamily}
-                disabled={familyMembers.length === 0}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowNotificationsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                Crear Familia
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+              {invitations.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-16 w-16 text-gray-300 mx-auto mb-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                    />
+                  </svg>
+                  <p className="text-gray-500 text-lg">
+                    No tienes invitaciones
+                  </p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    Las invitaciones que recibas aparecerán aquí
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {invitations.map((invitation) => (
+                    <div
+                      key={invitation.id}
+                      className="bg-gray-50 rounded-xl p-5 border border-gray-200 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg text-gray-800">
+                            {invitation.familyName}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Invitado por:{" "}
+                            <span className="font-medium">
+                              {invitation.inviterName}
+                            </span>
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            📅{" "}
+                            {new Date(invitation.createdAt).toLocaleDateString(
+                              "es-ES",
+                              {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              }
+                            )}
+                          </p>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getInvitationStatusColor(
+                            invitation.status
+                          )}`}
+                        >
+                          {invitation.status === "PENDING"
+                            ? "Pendiente"
+                            : invitation.status === "ACCEPTED"
+                            ? "Aceptada"
+                            : "Rechazada"}
+                        </span>
+                      </div>
+
+                      {invitation.status === "PENDING" && (
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() =>
+                              handleRespondInvitation(invitation.id, true)
+                            }
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Aceptar
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleRespondInvitation(invitation.id, false)
+                            }
+                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            Rechazar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

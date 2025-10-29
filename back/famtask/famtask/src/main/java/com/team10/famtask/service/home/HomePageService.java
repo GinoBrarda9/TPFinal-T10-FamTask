@@ -8,7 +8,9 @@ import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.calendar.EventRepository;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
+import com.team10.famtask.repository.family.FamilyRepository;
 import com.team10.famtask.repository.family.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,36 +25,29 @@ import java.util.List;
 public class HomePageService {
 
     private final UserRepository userRepository;
-    private final FamilyMemberRepository familyMemberRepository;
+    private final FamilyRepository familyRepository;
     private final EventRepository eventRepository;
 
-    public HomePageResponseDTO getHomePageData(String email) {
-        // 🔹 Buscar usuario
-        User user = userRepository.findByEmail(email)
+
+    public HomePageResponseDTO getHomePageData(String dni) {
+        User user = userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // 🔹 Buscar la membresía del usuario en alguna familia
-        FamilyMember membership = familyMemberRepository.findById_UserDni(user.getDni())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "User is not part of any family"));
+        Family family = familyRepository.findByMemberFetchAll(dni)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User has no family"));
 
-        Family family = membership.getFamily();
+        List<FamilyMemberDTO> members = family.getMembers().stream()
+                .map(m -> new FamilyMemberDTO(
+                        m.getUser().getDni(),
+                        m.getUser().getName(),
+                        m.getUser().getEmail(),
+                        m.getRole()))
+                .toList();
 
-        // 🔹 Miembros
-        List<FamilyMemberDTO> members = family.getMembers() != null
-                ? family.getMembers().stream()
-                .map(member -> new FamilyMemberDTO(
-                        member.getUser().getDni(),
-                        member.getUser().getName(),
-                        member.getUser().getEmail(),
-                        member.getRole()
-                ))
-                .toList()
-                : Collections.emptyList();
-
-        // 🔹 Eventos
-        List<Event> upcomingEvents = eventRepository
+        List<Event> upcoming = eventRepository
                 .findByFamilyIdAndStartAfterOrderByStartAsc(family.getId(), LocalDateTime.now());
 
-        return new HomePageResponseDTO(family.getName(), members, upcomingEvents);
+        return new HomePageResponseDTO(family.getId(),family.getName(), members, upcoming);
     }
+
 }
