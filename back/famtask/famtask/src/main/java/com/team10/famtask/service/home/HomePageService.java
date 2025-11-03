@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -25,15 +27,12 @@ public class HomePageService {
 
     public HomePageResponseDTO getHomePageData(String dni) {
 
-        // ✅ 1) verificar usuario existe
         userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // ✅ 2) obtener familia + miembros vía FETCH JOIN
         Family family = familyRepository.findByMemberFetchAll(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User has no family"));
 
-        // ✅ 3) mapear miembros
         List<FamilyMemberDTO> members = family.getMembers().stream()
                 .map(m -> new FamilyMemberDTO(
                         m.getUser().getDni(),
@@ -43,14 +42,20 @@ public class HomePageService {
                 ))
                 .toList();
 
-        // ✅ 4) obtener eventos futuros (filtrados sin crear método especial)
         LocalDateTime now = LocalDateTime.now();
-        List<Event> upcomingEvents = eventRepository.findByFamily(family).stream()
+// eventos familiares
+        List<Event> familyEvents = eventRepository.findByFamilyAndFinishedFalse(family);
+
+// eventos personales asignados al usuario
+        List<Event> personalEvents = eventRepository.findByAssignedTo_User_DniAndFinishedFalse(dni);
+
+// merge + filtrar futuros + ordenar
+        List<Event> upcomingEvents = Stream.concat(familyEvents.stream(), personalEvents.stream())
                 .filter(e -> e.getStartTime() != null && e.getStartTime().isAfter(now))
-                .sorted((e1, e2) -> e1.getStartTime().compareTo(e2.getStartTime()))
+                .sorted(Comparator.comparing(Event::getStartTime))
                 .toList();
 
-        // ✅ 5) devolver EXACTA respuesta esperada por el front
+
         return new HomePageResponseDTO(
                 family.getId(),
                 family.getName(),

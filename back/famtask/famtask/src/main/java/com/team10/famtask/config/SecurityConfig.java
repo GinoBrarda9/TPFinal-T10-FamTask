@@ -52,6 +52,7 @@ public class SecurityConfig {
 
                         // ✅ Events
                         .requestMatchers("/api/events/**").authenticated()
+                        .requestMatchers("/api/calendar/**").authenticated()
 
                         // ✅ Homepage
                         .requestMatchers("/api/homepage/**").permitAll()

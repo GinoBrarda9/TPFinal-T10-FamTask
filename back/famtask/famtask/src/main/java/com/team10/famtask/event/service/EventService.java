@@ -81,13 +81,13 @@ public class EventService {
     public List<Event> getFamilyEvents(Long familyId) {
         Family family = familyRepository.findById(familyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Familia no encontrada."));
-        return eventRepository.findByFamily(family);
+        return eventRepository.findByFamilyAndFinishedFalse(family);
     }
 
     public List<Event> getMemberEvents(String dni) {
         FamilyMember member = memberRepository.findByIdUserDni(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Miembro no encontrado."));
-        return eventRepository.findByAssignedTo(member);
+        return eventRepository.findByAssignedToAndFinishedFalse(member);
     }
 
     public Event getEventById(Long id) {
