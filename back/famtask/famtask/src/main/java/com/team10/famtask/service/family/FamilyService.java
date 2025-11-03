@@ -62,7 +62,7 @@ public class FamilyService {
     @Transactional(readOnly = true)
     public Family findByMember(User user) {
         // trae familia + members + user de cada member en una sola query
-        return familyMemberRepository.findByMemberFetchAll(user.getDni()).orElse(null);
+        return familyRepository.findByMemberFetchAll(user.getDni()).orElse(null);
     }
 
 

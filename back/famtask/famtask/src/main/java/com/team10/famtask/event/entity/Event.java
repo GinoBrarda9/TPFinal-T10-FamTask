@@ -8,8 +8,11 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name = "events")
 public class Event {
 
@@ -24,6 +27,13 @@ public class Event {
     private String location;
     private String color;
     private boolean allDay;
+    private boolean reminderDayBeforeSent;
+    private boolean reminderHourBeforeSent;
+
+    @Column(nullable = false)
+    private boolean finished = false;
+
+
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "family_id", nullable = true) //
