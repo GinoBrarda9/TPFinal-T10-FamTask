@@ -17,11 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
 
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @Profile("!test")
 public class SecurityConfig {
 
@@ -43,8 +46,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html").permitAll()
 
                         // ✅ Contact Info permitido para USER / ADMIN / MEMBER
-                        .requestMatchers("/api/profile/contact-info/**")
-                        .hasAnyRole("USER","ADMIN","MEMBER")
+                        .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
+
+
 
                         // ✅ Families
                         .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")

@@ -5,11 +5,14 @@ import com.team10.famtask.security.JwtService;
 import com.team10.famtask.service.profile.WorkOrStudyInfoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/profile/work-or-study")
 @RequiredArgsConstructor
+
+
 public class WorkOrStudyInfoController {
 
     private final WorkOrStudyInfoService service;

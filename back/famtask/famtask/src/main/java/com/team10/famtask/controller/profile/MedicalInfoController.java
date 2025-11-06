@@ -7,11 +7,14 @@ import com.team10.famtask.service.profile.MedicalInfoService;
 import com.team10.famtask.service.profile.WorkOrStudyInfoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/profile/medical-info")
 @RequiredArgsConstructor
+
+
 public class MedicalInfoController {
 
     private final MedicalInfoService service;

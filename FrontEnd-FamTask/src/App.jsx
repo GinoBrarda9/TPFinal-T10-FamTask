@@ -8,7 +8,7 @@ import {
 import LoginForm from "./components/LoginForm";
 import SignupForm from "./components/SignupForm";
 import HomePage from "./components/HomePage";
-import UserProfile from "./components/UserProfile";
+import ProfilePage from "./components/ProfilePage";
 import "./App.css";
 
 function App() {
@@ -55,12 +55,11 @@ function App() {
             }
           />
 
-          {/* Página de perfil - PROTEGIDA */}
           <Route
             path="/profile"
             element={
               <ProtectedRoute>
-                <UserProfile />
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
