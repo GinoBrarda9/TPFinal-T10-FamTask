@@ -64,9 +64,6 @@ public class EventService {
                 .allDay(dto.isAllDay())
                 .family(family)
                 .assignedTo(member)
-                // ✅ al crear, ambos flags quedan en false (valor por defecto del primitivo)
-                // .reminderDayBeforeSent(false)
-                // .reminderHourBeforeSent(false)
                 .build();
 
         Event saved = eventRepository.save(event);
@@ -79,10 +76,14 @@ public class EventService {
     // ✅ OBTENER EVENTOS
     // =======================================================
     public List<Event> getFamilyEvents(Long familyId) {
-        Family family = familyRepository.findById(familyId)
+        // Validar que la familia exista
+        familyRepository.findById(familyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Familia no encontrada."));
-        return eventRepository.findByFamilyAndFinishedFalse(family);
+
+        // 🔹 Buscar por ID directamente para evitar comparar objetos distintos
+        return eventRepository.findByFamily_IdAndFinishedFalse(familyId);
     }
+
 
     public List<Event> getMemberEvents(String dni) {
         FamilyMember member = memberRepository.findByIdUserDni(dni)
@@ -96,7 +97,7 @@ public class EventService {
     }
 
     // =======================================================
-    // ✅ ACTUALIZAR (PATCH) EVENTO
+    // ✅ ACTUALIZAR EVENTO
     // =======================================================
     @Transactional
     public Event patchEvent(Long id, Map<String, Object> updates, User currentUser) {
@@ -104,7 +105,6 @@ public class EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
 
-        // Permisos
         if (event.getFamily() != null) { // Familiar
             if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administradores pueden editar eventos familiares.");
@@ -116,10 +116,8 @@ public class EventService {
             }
         }
 
-        // Guardamos el startTime anterior para detectar cambios
         LocalDateTime oldStart = event.getStartTime();
 
-        // Aplicamos cambios
         if (updates.containsKey("title"))       event.setTitle((String) updates.get("title"));
         if (updates.containsKey("description")) event.setDescription((String) updates.get("description"));
         if (updates.containsKey("startTime"))   event.setStartTime(LocalDateTime.parse((String) updates.get("startTime")));

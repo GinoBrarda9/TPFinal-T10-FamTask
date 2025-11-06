@@ -62,13 +62,20 @@ export default function HomePage() {
     }
   }, []);
 
+  // 1️⃣ Cargar familia e invitaciones cuando el usuario está identificado
   useEffect(() => {
     if (userDni) {
       fetchInvitations();
+      fetchFamily();
+    }
+  }, [userDni]);
+
+  // 2️⃣ Cargar eventos solo cuando ya exista una familia o al menos el DNI del usuario
+  useEffect(() => {
+    if (userDni && (family || family?.id)) {
       fetchEvents();
     }
-    fetchFamily();
-  }, [userDni]);
+  }, [userDni, family]);
 
   useEffect(() => {
     if (family) {
@@ -736,7 +743,7 @@ export default function HomePage() {
                     {familyMembers.map((m) => (
                       <li
                         key={m.dni || m.email || m.name}
-                        className="py-2 flex items-center justify-between"
+                        className="py-2 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">
                           <p className="font-medium text-gray-800 truncate">
@@ -746,9 +753,36 @@ export default function HomePage() {
                             {m.dni || m.email}
                           </p>
                         </div>
-                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                          {(m.role || "MIEMBRO").toString().toUpperCase()}
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {/* Botón WhatsApp Web */}
+                          <button
+                            onClick={() =>
+                              window.open(
+                                `https://web.whatsapp.com/send?phone=${
+                                  m.dni || ""
+                                }`,
+                                "_blank"
+                              )
+                            }
+                            title="Chatear por WhatsApp"
+                            className="p-1.5 rounded-full hover:scale-110 transition-transform"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 448 512"
+                              fill="#25D366"
+                              className="h-6 w-6"
+                            >
+                              <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32 100.8 32 1.6 131.2 1.6 254.3c0 39.8 10.4 78.6 30.2 113.1L0 480l115.5-30.3c33.2 18.2 70.6 27.8 108.4 27.8h.1c123.1 0 222.3-99.2 222.3-222.3 0-59.3-23.1-115.1-65.1-157.1zM223.9 438.3c-34.7 0-68.6-9.3-98.1-26.8l-7-4.2-68.4 18 18.3-66.7-4.5-6.8c-18.7-28.1-28.5-60.8-28.5-94.5 0-94.5 76.9-171.4 171.4-171.4 45.8 0 88.9 17.8 121.3 50.1 32.4 32.4 50.2 75.5 50.1 121.3 0 94.5-76.9 171.4-171.4 171.4zm94.7-138.3c-5.2-2.6-30.8-15.2-35.6-17-4.8-1.7-8.3-2.6-11.8 2.6-3.5 5.2-13.6 17-16.6 20.5-3 3.5-6.1 3.9-11.3 1.3-5.2-2.6-22.1-8.1-42-25.8-15.5-13.8-26-30.8-29-36-3-5.2-.3-8 2.3-10.6 2.3-2.3 5.2-6.1 7.8-9.1 2.6-3 3.5-5.2 5.2-8.7 1.7-3.5.9-6.5-.4-9.1-1.3-2.6-11.8-28.6-16.2-39.2-4.3-10.3-8.6-8.9-11.8-9.1-3-.2-6.5-.2-10-.2s-9.1 1.3-13.8 6.5c-4.8 5.2-18.1 17.7-18.1 43.2s18.6 50.1 21.3 53.6c2.6 3.5 36.7 56 89 78.6 12.4 5.4 22 8.6 29.5 11 12.4 3.9 23.7 3.4 32.6 2.1 9.9-1.5 30.8-12.6 35.1-24.8 4.3-12.2 4.3-22.7 3-24.8-1.3-2.1-4.8-3.5-10-6.1z" />
+                            </svg>
+                          </button>
+
+                          {/* Rol */}
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                            {(m.role || "MIEMBRO").toString().toUpperCase()}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>
