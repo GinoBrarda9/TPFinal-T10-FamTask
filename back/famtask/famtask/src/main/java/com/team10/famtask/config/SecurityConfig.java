@@ -40,11 +40,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html").permitAll()
+                                "/swagger-ui.html","/api/auth/google/**").permitAll()
 
                         // ✅ Contact Info permitido para USER / ADMIN / MEMBER
                         .requestMatchers("/api/profile/contact-info/**")
-                        .hasAnyRole("USER","ADMIN","MEMBER")
+                        .authenticated()
 
                         // ✅ Families
                         .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")

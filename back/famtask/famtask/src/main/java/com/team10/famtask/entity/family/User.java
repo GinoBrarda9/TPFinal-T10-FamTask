@@ -1,10 +1,12 @@
 package com.team10.famtask.entity.family;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,6 +42,27 @@ public class User {
     @Builder.Default
     @JsonManagedReference
     private List<FamilyMember> familyMemberships = new ArrayList<>();
+
+    /** ID único de Google del usuario (sub del id_token) */
+    @Column(name = "google_id", unique = true)
+    private String googleId;
+
+    /** Email que viene desde Google (puede coincidir con email normal) */
+    @Column(name = "google_email")
+    private String googleEmail;
+
+    /** Si ya otorgó permisos y tenemos refresh_token */
+    @Column(name = "google_linked", nullable = false)
+    private boolean googleLinked = false;
+
+    /** Refresh token para acceder siempre a la API de Calendar */
+    @Lob
+    @JsonIgnore
+    @Column(name = "google_refresh_token")
+    private String googleRefreshToken;
+
+    @Column(name = "google_token_updated_at")
+    private LocalDateTime googleTokenUpdatedAt;
 
     @PrePersist
     protected void onCreate() {
