@@ -99,12 +99,13 @@ public class EventReminderScheduler {
         var phoneOpt = contactInfoRepository.findByUser_Dni(dni).map(ci -> ci.getPhone());
         if (phoneOpt.isEmpty() || phoneOpt.get().isBlank()) return false;
 
-        String to = phoneOpt.get().replaceAll("\\D", "");
-        String when = dayBefore ? "mañana " + ev.getStartTime().toLocalTime()
-                : "en 1 hora (" + ev.getStartTime().toLocalTime() + ")";
-        String msg = "⏰ Recordatorio: " + when + " — '" + safe(ev.getTitle()) + "'. Lugar: " + safe(ev.getLocation()) + ".";
-
-        whatsappService.sendText(to, msg);
+        String to = "+" + phoneOpt.get().replaceAll("\\D", "");
+        whatsappService.sendTemplate(
+                to,
+                ev.getTitle(),
+                ev.getStartTime().toLocalTime().toString(),
+                safe(ev.getLocation())
+        );
         return true;
     }
 

@@ -6,6 +6,7 @@ import com.team10.famtask.entity.family.User;
 import com.team10.famtask.event.dto.EventDTO;
 import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.event.repository.EventRepository;
+import com.team10.famtask.google.service.GoogleCalendarService;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;
 import com.team10.famtask.service.security.SecurityService;
@@ -53,6 +54,7 @@ public class EventService {
             member = memberRepository.findByIdUserDni(dto.getMemberDni())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Miembro no encontrado."));
         }
+
 
         Event event = Event.builder()
                 .title(dto.getTitle())

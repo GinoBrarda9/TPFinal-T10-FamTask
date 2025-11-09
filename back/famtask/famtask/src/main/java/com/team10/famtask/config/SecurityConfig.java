@@ -39,38 +39,37 @@ public class SecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html").permitAll()
+           .authorizeHttpRequests(auth -> auth
+        .requestMatchers("/api/auth/**",
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html","/api/auth/google/**").permitAll()
 
-                        // ✅ Contact Info permitido para USER / ADMIN / MEMBER
-                        .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
+        // ✅ Perfil (USER / ADMIN / MEMBER)
+        .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
 
+        // ✅ Families
+        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+        .requestMatchers("/api/families/**").authenticated()
 
+        // ✅ Events
+        .requestMatchers("/api/events/**").authenticated()
+        .requestMatchers("/api/calendar/**").authenticated()
 
-                        // ✅ Families
-                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-                        .requestMatchers("/api/families/**").authenticated()
+        // ✅ Homepage
+        .requestMatchers("/api/homepage/**").permitAll()
 
-                        // ✅ Events
-                        .requestMatchers("/api/events/**").authenticated()
-                        .requestMatchers("/api/calendar/**").authenticated()
+        // ✅ Invitations
+        .requestMatchers("/api/invitations/**").authenticated()
 
-                        // ✅ Homepage
-                        .requestMatchers("/api/homepage/**").permitAll()
+        // ✅ Users
+        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers("/api/users/**").authenticated()
 
-                        // ✅ Invitations
-                        .requestMatchers("/api/invitations/**").authenticated()
+        .anyRequest().authenticated()
+)
 
-                        // ✅ Users
-                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/users/**").authenticated()
-
-                        .anyRequest().authenticated()
-                )
 
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

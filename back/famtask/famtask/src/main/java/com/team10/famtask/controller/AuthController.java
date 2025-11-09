@@ -1,6 +1,8 @@
 package com.team10.famtask.controller;
 
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.google.dto.GoogleLoginResponse;
+import com.team10.famtask.google.service.GoogleOAuthService;
 import com.team10.famtask.repository.family.UserRepository;
 import com.team10.famtask.security.JwtService;
 import lombok.Data;
@@ -20,11 +22,13 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final GoogleOAuthService googleOAuthService;
 
-    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder, GoogleOAuthService googleOAuthService) {
         this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.googleOAuthService = googleOAuthService;
 
     }
 
@@ -60,7 +64,7 @@ public class AuthController {
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(hashedPassword)
-                .role("member")
+                .role("user")
                 .build();
 
         userRepository.save(user);
@@ -90,6 +94,19 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("token", token));
     }
 
+    @GetMapping("/google/login")
+    public ResponseEntity<Map<String, String>> googleLogin() {
+        String url = googleOAuthService.getGoogleAuthorizationUrl();
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+
+    @GetMapping("/google/callback")
+    public ResponseEntity<GoogleLoginResponse> googleCallback(@RequestParam String code) {
+        GoogleLoginResponse response = googleOAuthService.handleGoogleCallback(code);
+        return ResponseEntity.ok(response);
+    }
+
+
     // ====================
     // DTOs
     // ====================
@@ -106,6 +123,7 @@ public class AuthController {
         private String email;
         private String password;
     }
+
 
     // ====================
     // Validaciones
