@@ -2,8 +2,8 @@ package com.team10.famtask.event.controller;
 
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.event.dto.EventDTO;
-import com.team10.famtask.event.mapper.EventMapper;
 import com.team10.famtask.event.entity.Event;
+import com.team10.famtask.event.mapper.EventMapper;
 import com.team10.famtask.event.service.EventService;
 import com.team10.famtask.service.security.SecurityService;
 import lombok.RequiredArgsConstructor;
@@ -25,58 +25,63 @@ public class EventController {
 
     private final EventService eventService;
     private final SecurityService securityService;
+    private final EventMapper eventMapper; // ✅ inyección del mapper
 
-    // ============================
+    // =======================================================
     // ✅ Crear evento
-    // ============================
+    // =======================================================
     @PostMapping
     public ResponseEntity<EventDTO> createEvent(@RequestBody EventDTO dto) {
         Event created = eventService.createEvent(dto);
-        return ResponseEntity.ok(EventMapper.toDTO(created));
+        return ResponseEntity.ok(eventMapper.toDTO(created)); // ✅ uso correcto
     }
 
-    // ============================
+    // =======================================================
     // ✅ Obtener eventos familiares
-    // ============================
+    // =======================================================
     @GetMapping("/family/{familyId}")
     public ResponseEntity<List<EventDTO>> getFamilyEvents(@PathVariable Long familyId) {
         List<EventDTO> events = eventService.getFamilyEvents(familyId)
-                .stream().map(EventMapper::toDTO).toList();
+                .stream()
+                .map(eventMapper::toDTO) // ✅ uso correcto
+                .toList();
         return ResponseEntity.ok(events);
     }
 
-    // ============================
+    // =======================================================
     // ✅ Obtener eventos personales
-    // ============================
+    // =======================================================
     @GetMapping("/member/{dni}")
     public ResponseEntity<List<EventDTO>> getMemberEvents(@PathVariable String dni) {
         List<EventDTO> events = eventService.getMemberEvents(dni)
-                .stream().map(EventMapper::toDTO).toList();
+                .stream()
+                .map(eventMapper::toDTO) // ✅ uso correcto
+                .toList();
         return ResponseEntity.ok(events);
     }
-    // ============================
-// ✅ Obtener evento por ID
-// ============================
+
+    // =======================================================
+    // ✅ Obtener evento por ID
+    // =======================================================
     @GetMapping("/{id}")
     public ResponseEntity<EventDTO> getEventById(@PathVariable Long id) {
         Event event = eventService.getEventById(id);
-        return ResponseEntity.ok(EventMapper.toDTO(event));
+        return ResponseEntity.ok(eventMapper.toDTO(event)); // ✅ uso correcto
     }
 
-    // ============================
-// ✅ PATCH (actualizar parcialmente)
-// ============================
+    // =======================================================
+    // ✅ Actualizar evento parcialmente (PATCH)
+    // =======================================================
     @PatchMapping("/{id}")
     public ResponseEntity<EventDTO> patchEvent(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         User currentUser = securityService.getCurrentUser();
         Event updated = eventService.patchEvent(id, updates, currentUser);
-        return ResponseEntity.ok(EventMapper.toDTO(updated));
+        return ResponseEntity.ok(eventMapper.toDTO(updated)); // ✅ uso correcto
     }
 
-
-    // ============================
+    // =======================================================
     // ✅ Eliminar evento
-    // ============================
+    // =======================================================
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
         User currentUser = securityService.getCurrentUser();

@@ -36,24 +36,28 @@ public class JwtFilter extends OncePerRequestFilter {
 
         final String jwt = authHeader.substring(7);
 
-        // subject = DNI (si así generaste el token)
         final String subject = jwtService.extractUsername(jwt);
         final String dni = jwtService.extractDni(jwt);
-        final String role = jwtService.extractRole(jwt);
+        String role = jwtService.extractRole(jwt);
 
-        // DEBUG opcional
+        // 🔍 DEBUG opcional
         System.out.println("=== JWT FILTER === " + request.getRequestURI());
         System.out.println("SUB: " + subject + " | DNI: " + dni + " | ROLE: " + role);
 
         if (subject != null && SecurityContextHolder.getContext().getAuthentication() == null
                 && jwtService.isTokenValid(jwt)) {
 
-            String effRole = (role == null || role.isBlank()) ? "USER" : role.toUpperCase();
+            // ✅ Normalizar el rol
+            String effRole = (role == null || role.isBlank()) ? "USER" : role.trim().toUpperCase();
+            if (!effRole.startsWith("ROLE_")) {
+                effRole = "ROLE_" + effRole;
+            }
+
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
-                            dni, // 👈 principal = DNI
+                            dni, // principal
                             null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + effRole))
+                            List.of(new SimpleGrantedAuthority(effRole))
                     );
 
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -64,8 +68,6 @@ public class JwtFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
-
-
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {

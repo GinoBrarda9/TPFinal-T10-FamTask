@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userName, setUserName] = useState("Usuario");
@@ -60,13 +62,20 @@ export default function HomePage() {
     }
   }, []);
 
+  // 1️⃣ Cargar familia e invitaciones cuando el usuario está identificado
   useEffect(() => {
     if (userDni) {
       fetchInvitations();
+      fetchFamily();
+    }
+  }, [userDni]);
+
+  // 2️⃣ Cargar eventos solo cuando ya exista una familia o al menos el DNI del usuario
+  useEffect(() => {
+    if (userDni && (family || family?.id)) {
       fetchEvents();
     }
-    fetchFamily();
-  }, [userDni]);
+  }, [userDni, family]);
 
   useEffect(() => {
     if (family) {
@@ -133,15 +142,26 @@ export default function HomePage() {
       return;
     }
 
+    if (!eventForm.startTime || !eventForm.endTime) {
+      alert("Las fechas de inicio y fin son obligatorias");
+      return;
+    }
+
     // Validar que si es evento familiar, el usuario sea ADMIN
     if (eventForm.familyId && userRole !== "ADMIN") {
       alert("Solo los administradores pueden crear eventos familiares");
       return;
     }
 
-    // Preparar datos
+    // Preparar datos - asegurar que los campos estén correctos
     const eventData = {
-      ...eventForm,
+      title: eventForm.title.trim(),
+      description: eventForm.description?.trim() || "",
+      startTime: eventForm.startTime,
+      endTime: eventForm.endTime,
+      color: eventForm.color || "#FF5733",
+      location: eventForm.location?.trim() || "",
+      allDay: eventForm.allDay || false,
       familyId: eventForm.familyId || null,
       memberDni: eventForm.familyId ? null : userDni,
     };
@@ -487,23 +507,6 @@ export default function HomePage() {
         return "bg-gray-100 text-gray-800";
     }
   };
-  // Construye la URL de WhatsApp Web a partir de los datos del miembro
-  const buildWhatsAppUrl = (member) => {
-    const raw = member.phone || member.telefono || member.dni || "";
-    const digits = String(raw).replace(/\D/g, "");
-    if (!digits) return "https://web.whatsapp.com/";
-
-    // Normalizaciones comunes en AR: quitar 0 inicial y 15 local
-    let n = digits.replace(/^0+/, "").replace(/^15/, "");
-
-    // Prefijar país si falta (54 Argentina)
-    if (!/^54/.test(n)) n = "54" + n;
-
-    // WhatsApp móvil en AR requiere 9 después del país
-    if (/^54(?!9)/.test(n)) n = "549" + n.slice(2);
-
-    return `https://web.whatsapp.com/send?phone=${n}`;
-  };
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col">
@@ -661,7 +664,10 @@ export default function HomePage() {
             {menuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
                 <button
-                  onClick={() => setMenuOpen(false)}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate("/profile");
+                  }}
                   className="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition"
                 >
                   Ver perfil
@@ -737,29 +743,9 @@ export default function HomePage() {
                     {familyMembers.map((m) => (
                       <li
                         key={m.dni || m.email || m.name}
-                        className="py-2 flex items-center justify-between"
+                        className="py-2 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">
-                          {/* Ícono de WhatsApp */}
-                          {m.dni && m.dni !== userDni && (
-                            <a
-                              href={buildWhatsAppUrl(m)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 hover:bg-green-100 rounded-full transition-colors"
-                              title={`Enviar WhatsApp a ${m.name}`}
-                              aria-label={`Enviar WhatsApp a ${m.name}`}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5 text-green-600"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                              >
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                              </svg>
-                            </a>
-                          )}
                           <p className="font-medium text-gray-800 truncate">
                             {m.name}
                           </p>
@@ -767,9 +753,36 @@ export default function HomePage() {
                             {m.dni || m.email}
                           </p>
                         </div>
-                        <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                          {(m.role || "MIEMBRO").toString().toUpperCase()}
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {/* Botón WhatsApp Web */}
+                          <button
+                            onClick={() =>
+                              window.open(
+                                `https://web.whatsapp.com/send?phone=${
+                                  m.dni || ""
+                                }`,
+                                "_blank"
+                              )
+                            }
+                            title="Chatear por WhatsApp"
+                            className="p-1.5 rounded-full hover:scale-110 transition-transform"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 448 512"
+                              fill="#25D366"
+                              className="h-6 w-6"
+                            >
+                              <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32 100.8 32 1.6 131.2 1.6 254.3c0 39.8 10.4 78.6 30.2 113.1L0 480l115.5-30.3c33.2 18.2 70.6 27.8 108.4 27.8h.1c123.1 0 222.3-99.2 222.3-222.3 0-59.3-23.1-115.1-65.1-157.1zM223.9 438.3c-34.7 0-68.6-9.3-98.1-26.8l-7-4.2-68.4 18 18.3-66.7-4.5-6.8c-18.7-28.1-28.5-60.8-28.5-94.5 0-94.5 76.9-171.4 171.4-171.4 45.8 0 88.9 17.8 121.3 50.1 32.4 32.4 50.2 75.5 50.1 121.3 0 94.5-76.9 171.4-171.4 171.4zm94.7-138.3c-5.2-2.6-30.8-15.2-35.6-17-4.8-1.7-8.3-2.6-11.8 2.6-3.5 5.2-13.6 17-16.6 20.5-3 3.5-6.1 3.9-11.3 1.3-5.2-2.6-22.1-8.1-42-25.8-15.5-13.8-26-30.8-29-36-3-5.2-.3-8 2.3-10.6 2.3-2.3 5.2-6.1 7.8-9.1 2.6-3 3.5-5.2 5.2-8.7 1.7-3.5.9-6.5-.4-9.1-1.3-2.6-11.8-28.6-16.2-39.2-4.3-10.3-8.6-8.9-11.8-9.1-3-.2-6.5-.2-10-.2s-9.1 1.3-13.8 6.5c-4.8 5.2-18.1 17.7-18.1 43.2s18.6 50.1 21.3 53.6c2.6 3.5 36.7 56 89 78.6 12.4 5.4 22 8.6 29.5 11 12.4 3.9 23.7 3.4 32.6 2.1 9.9-1.5 30.8-12.6 35.1-24.8 4.3-12.2 4.3-22.7 3-24.8-1.3-2.1-4.8-3.5-10-6.1z" />
+                            </svg>
+                          </button>
+
+                          {/* Rol */}
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+                            {(m.role || "MIEMBRO").toString().toUpperCase()}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>

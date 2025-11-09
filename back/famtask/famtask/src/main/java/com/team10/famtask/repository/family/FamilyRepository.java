@@ -8,11 +8,16 @@ import java.util.Optional;
 
 public interface FamilyRepository extends JpaRepository<Family, Long> {
     @Query("""
-  select f
+  select distinct f
   from Family f
     join fetch f.members fm
     join fetch fm.user u
-  where u.dni = :dni
+  where f.id = (
+      select fm2.family.id
+      from FamilyMember fm2
+      where fm2.user.dni = :dni
+  )
 """)
-     Optional<Family> findByMemberFetchAll(String dni);
+    Optional<Family> findByMemberFetchAll(String dni);
+
 }

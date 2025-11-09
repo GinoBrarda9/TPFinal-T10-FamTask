@@ -1,6 +1,7 @@
 package com.team10.famtask.entity.family;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class FamilyMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("familyId") // vincula el campo de FamilyMemberId.familyId
     @JoinColumn(name = "family_id")
+    @JsonIgnore
     private Family family;
 
     private String role;

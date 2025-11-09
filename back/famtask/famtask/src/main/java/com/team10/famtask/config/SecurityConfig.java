@@ -17,11 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
 
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @Profile("!test")
 public class SecurityConfig {
 
@@ -36,37 +39,37 @@ public class SecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html","/api/auth/google/**").permitAll()
+           .authorizeHttpRequests(auth -> auth
+        .requestMatchers("/api/auth/**",
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html","/api/auth/google/**").permitAll()
 
-                        // ✅ Contact Info permitido para USER / ADMIN / MEMBER
-                        .requestMatchers("/api/profile/contact-info/**")
-                        .authenticated()
+        // ✅ Perfil (USER / ADMIN / MEMBER)
+        .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
 
-                        // ✅ Families
-                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-                        .requestMatchers("/api/families/**").authenticated()
+        // ✅ Families
+        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+        .requestMatchers("/api/families/**").authenticated()
 
-                        // ✅ Events
-                        .requestMatchers("/api/events/**").authenticated()
-                        .requestMatchers("/api/calendar/**").authenticated()
+        // ✅ Events
+        .requestMatchers("/api/events/**").authenticated()
+        .requestMatchers("/api/calendar/**").authenticated()
 
-                        // ✅ Homepage
-                        .requestMatchers("/api/homepage/**").permitAll()
+        // ✅ Homepage
+        .requestMatchers("/api/homepage/**").permitAll()
 
-                        // ✅ Invitations
-                        .requestMatchers("/api/invitations/**").authenticated()
+        // ✅ Invitations
+        .requestMatchers("/api/invitations/**").authenticated()
 
-                        // ✅ Users
-                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/users/**").authenticated()
+        // ✅ Users
+        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers("/api/users/**").authenticated()
 
-                        .anyRequest().authenticated()
-                )
+        .anyRequest().authenticated()
+)
+
 
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

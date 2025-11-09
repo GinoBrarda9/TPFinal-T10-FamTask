@@ -1,7 +1,6 @@
 package com.team10.famtask.entity.family;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,9 +37,10 @@ public class User {
 
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    // 🔥 Evita error de lazy loading y recursión infinita
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
     @Builder.Default
-    @JsonManagedReference
     private List<FamilyMember> familyMemberships = new ArrayList<>();
 
     /** ID único de Google del usuario (sub del id_token) */
