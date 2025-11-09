@@ -1,3 +1,18 @@
+# ✅ VARIABLES SENSIBLES
+.env
+application.properties
+
+# ✅ CREDENCIALES GOOGLE
+src/main/resources/credentials.json
+tokens/
+
+# ✅ LOGS y archivos locales
+*.log
+
+# ✅ IGNORAR CARPETAS .idea EN TODO EL PROYECTO
+**/.idea/
+
+# ===== EXISTENTE =====
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
@@ -14,17 +29,16 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-*.idea
 *.iws
 *.iml
 *.ipr
 
 ### NetBeans ###
 /nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/

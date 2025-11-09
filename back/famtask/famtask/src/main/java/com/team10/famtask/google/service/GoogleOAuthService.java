@@ -2,19 +2,16 @@ package com.team10.famtask.google.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.google.dto.GoogleLoginResponse;
 import com.team10.famtask.repository.family.UserRepository;
 import com.team10.famtask.security.JwtService;
+import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.util.Collections;
 
@@ -25,32 +22,25 @@ public class GoogleOAuthService {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final Dotenv dotenv;
 
-    @Value("${google.oauth.redirect-uri}")
-    private String redirectUri;
-
-    private static final String CLIENT_SECRET_FILE = "/credentials.json";
     private static final GsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
-    /**
-     * ✅ Devuelve URL de login a Google
-     */
     public String getGoogleAuthorizationUrl() {
         try {
             var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            var secrets = GoogleClientSecrets.load(JSON_FACTORY,
-                    new InputStreamReader(getClass().getResourceAsStream(CLIENT_SECRET_FILE)));
 
             var flow = new GoogleAuthorizationCodeFlow.Builder(
                     httpTransport,
                     JSON_FACTORY,
-                    secrets,
+                    dotenv.get("GOOGLE_CLIENT_ID"),
+                    dotenv.get("GOOGLE_CLIENT_SECRET"),
                     Collections.singletonList("openid email profile https://www.googleapis.com/auth/calendar"))
                     .setAccessType("offline")
                     .build();
 
             return flow.newAuthorizationUrl()
-                    .setRedirectUri(redirectUri)
+                    .setRedirectUri(dotenv.get("GOOGLE_REDIRECT_URI"))
                     .build();
 
         } catch (Exception e) {
@@ -58,26 +48,20 @@ public class GoogleOAuthService {
         }
     }
 
-    /**
-     * ✅ Maneja el callback de Google (recibe el "code")
-     */
     public GoogleLoginResponse handleGoogleCallback(String code) {
         try {
             var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            var secrets = GoogleClientSecrets.load(JSON_FACTORY,
-                    new InputStreamReader(getClass().getResourceAsStream(CLIENT_SECRET_FILE)));
 
             var tokenResponse = new GoogleAuthorizationCodeTokenRequest(
                     httpTransport,
                     JSON_FACTORY,
-                    secrets.getDetails().getClientId(),
-                    secrets.getDetails().getClientSecret(),
+                    dotenv.get("GOOGLE_CLIENT_ID"),
+                    dotenv.get("GOOGLE_CLIENT_SECRET"),
                     code,
-                    redirectUri)
+                    dotenv.get("GOOGLE_REDIRECT_URI"))
                     .execute();
 
-            var idToken = tokenResponse.parseIdToken();
-            var payload = idToken.getPayload();
+            var payload = tokenResponse.parseIdToken().getPayload();
 
             String googleId = payload.getSubject();
             String email = (String) payload.get("email");
@@ -87,7 +71,6 @@ public class GoogleOAuthService {
                     .orElseGet(() -> userRepository.findByGoogleEmail(email)
                             .orElseGet(() -> createNewGoogleUser(googleId, email, name)));
 
-            // Guardamos refresh_token si viene
             if (tokenResponse.getRefreshToken() != null) {
                 user.setGoogleRefreshToken(tokenResponse.getRefreshToken());
                 user.setGoogleLinked(true);
@@ -95,8 +78,9 @@ public class GoogleOAuthService {
                 userRepository.save(user);
             }
 
-            // Generamos JWT de nuestra app
-            String jwt = jwtService.generateToken(user.getEmail(), user.getDni(), user.getRole(), user.getName());
+            String jwt = jwtService.generateToken(
+                    user.getEmail(), user.getDni(), user.getRole(), user.getName()
+            );
 
             return new GoogleLoginResponse(jwt, user.getName(), user.getEmail(), user.getRole());
 
@@ -107,7 +91,7 @@ public class GoogleOAuthService {
 
     private User createNewGoogleUser(String googleId, String email, String name) {
         User newUser = User.builder()
-                .dni(googleId.substring(0, 15)) // pseudo dni único
+                .dni(googleId.substring(0, 15))
                 .googleId(googleId)
                 .googleEmail(email)
                 .email(email)

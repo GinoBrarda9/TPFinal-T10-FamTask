@@ -119,6 +119,11 @@
             <artifactId>google-api-services-calendar</artifactId>
             <version>v3-rev411-1.25.0</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.cdimascio</groupId>
+            <artifactId>java-dotenv</artifactId>
+            <version>5.2.2</version>
+        </dependency>
 
 
     </dependencies>
