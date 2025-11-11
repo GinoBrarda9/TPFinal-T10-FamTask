@@ -2,6 +2,7 @@ package com.team10.famtask.service.security;
 
 import com.team10.famtask.board.entity.Board;
 import com.team10.famtask.board.repository.BoardRepository;
+import com.team10.famtask.board.repository.CardRepository;
 import com.team10.famtask.board.repository.ColumnRepository;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.repository.family.FamilyMemberRepository;
@@ -27,6 +28,7 @@ public class SecurityService {
     private final HttpServletRequest request;
     private final BoardRepository boardRepository;
     private final ColumnRepository columnRepository;
+    private final CardRepository cardRepository;
 
     /**
      * Verifica si el usuario autenticado es dueño del recurso (por DNI).
@@ -97,6 +99,21 @@ public class SecurityService {
         if (jwt == null) return null;
         return jwtService.extractRole(jwt);
     }
+    public boolean isCardAccessible(Long cardId, Authentication auth) {
+        String dni = auth.getName();
+        System.out.println("🔍 Validando acceso a Card " + cardId + " | Usuario: " + dni);
+
+        Long familyId = cardRepository.findFamilyIdByCardId(cardId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Card not found"));
+
+        boolean belongs = familyMemberRepository.existsByIdUserDniAndIdFamilyId(dni, familyId);
+
+        System.out.println("➡ Familia dueña de card: " + familyId);
+        System.out.println("➡ Usuario pertenece? " + belongs);
+
+        return belongs;
+    }
+
 
     /**
      * Extrae el JWT desde el header Authorization.
