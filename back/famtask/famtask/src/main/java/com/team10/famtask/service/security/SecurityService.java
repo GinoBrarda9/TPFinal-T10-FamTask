@@ -1,6 +1,10 @@
 package com.team10.famtask.service.security;
 
+import com.team10.famtask.board.entity.Board;
+import com.team10.famtask.board.repository.BoardRepository;
+import com.team10.famtask.board.repository.ColumnRepository;
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.UserRepository;
 import com.team10.famtask.security.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,8 +22,11 @@ import java.util.Optional;
 public class SecurityService {
 
     private final UserRepository userRepository;
+    private final FamilyMemberRepository familyMemberRepository;
     private final JwtService jwtService;
     private final HttpServletRequest request;
+    private final BoardRepository boardRepository;
+    private final ColumnRepository columnRepository;
 
     /**
      * Verifica si el usuario autenticado es dueño del recurso (por DNI).
@@ -42,6 +49,45 @@ public class SecurityService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuario no encontrado"));
     }
 
+    /**
+     * Chequea si el usuario pertenece a alguna familia.
+     */
+    public boolean isMemberOfFamily(Long familyId, Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        // DNI viene del principal según tu JwtFilter
+        String dni = (String) authentication.getPrincipal();
+
+        // ✅ Verifica si existe una relación FamilyMember con ese DNI y FamilyId
+        return familyMemberRepository.existsByIdUserDniAndIdFamilyId(dni, familyId);
+    }
+
+    public boolean isMemberOfBoard(Long boardId, Authentication authentication) {
+
+        String dni = (String) authentication.getPrincipal();
+
+        System.out.println("✅ Checking board access. Board: "+boardId+" | dni: "+authentication.getPrincipal());
+
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Board not found"));
+
+        Long familyId = board.getFamily().getId();
+        boolean exists = familyMemberRepository.existsByIdUserDniAndIdFamilyId(dni, board.getFamily().getId());
+        System.out.println("➡ belongs? "+exists);
+        return exists;
+
+    }
+
+    public boolean isColumnAccessible(Long columnId, Authentication authentication) {
+        String dni = authentication.getName();
+
+        return columnRepository.findFamilyIdByColumnId(columnId)
+                .map(familyId -> familyMemberRepository.existsByIdUserDniAndIdFamilyId(dni, familyId))
+                .orElse(false);
+    }
 
     /**
      * Obtiene el rol actual del token.

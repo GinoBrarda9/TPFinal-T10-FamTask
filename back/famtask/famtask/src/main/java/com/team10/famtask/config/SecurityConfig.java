@@ -67,7 +67,10 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
         .requestMatchers("/api/users/**").authenticated()
 
-        .anyRequest().authenticated()
+        // ✅ Board
+        .requestMatchers("/api/board/**").authenticated()
+
+                   .anyRequest().authenticated()
 )
 
 
