@@ -23,19 +23,19 @@ export default function KanbanBoard() {
     todo: {
       title: "Por hacer",
       color:
-        "bg-yellow-50 border border-yellow-400 rounded-2xl p-4 shadow-md hover:shadow-lg transition-all duration-300",
+        "bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.01]",
       icon: "📝",
     },
     inProgress: {
       title: "En progreso",
       color:
-        "bg-blue-50 border border-blue-400 rounded-2xl p-4 shadow-md hover:shadow-lg transition-all duration-300",
+        "bg-blue-50 border-2 border-blue-400 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.01]",
       icon: "⚙️",
     },
     done: {
       title: "Completado",
       color:
-        "bg-green-50 border border-green-400 rounded-2xl p-4 shadow-md hover:shadow-lg transition-all duration-300",
+        "bg-green-50 border-2 border-green-400 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.01]",
       icon: "✅",
     },
   };
@@ -45,11 +45,6 @@ export default function KanbanBoard() {
     medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
     high: "bg-red-100 text-red-800 border-red-300",
   };
-
-  // Simular carga desde backend
-  // useEffect(() => {
-  //   fetch("/api/tasks").then(res => res.json()).then(setTasks);
-  // }, []);
 
   const handleDragStart = (task, column) => {
     setDraggedTask(task);
@@ -69,9 +64,6 @@ export default function KanbanBoard() {
         ];
         return updated;
       });
-
-      // Placeholder backend update:
-      // fetch(`/api/tasks/${draggedTask.id}`, { method: "PATCH", body: JSON.stringify({ status: targetColumn }) });
     }
     setDraggedTask(null);
     setDraggedFrom(null);
@@ -89,9 +81,6 @@ export default function KanbanBoard() {
       ...prev,
       todo: [...prev.todo, task],
     }));
-
-    // Placeholder backend POST
-    // fetch("/api/tasks", { method: "POST", body: JSON.stringify(task) });
 
     setShowTaskModal(false);
     setNewTask({ title: "", assignee: "", priority: "medium", dueDate: "" });
@@ -121,22 +110,21 @@ export default function KanbanBoard() {
         ...prev,
         [column]: prev[column].filter((t) => t.id !== taskId),
       }));
-
-      // Placeholder backend DELETE
-      // fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
+    <div className="bg-white rounded-2xl p-6 shadow-xl border border-amber-300/70 hover:shadow-2xl transition-all duration-300">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-gray-800">Tablero Kanban</h3>
+        <h3 className="text-xl font-bold text-amber-800 tracking-tight">
+          Tablero Kanban
+        </h3>
         <button
           onClick={() => {
             setEditingTask(null);
             setShowTaskModal(true);
           }}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-md"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -156,31 +144,45 @@ export default function KanbanBoard() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 🟢 Responsive grid: 3 columnas en desktop, 1 debajo de otra en móvil */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full transition-all duration-300">
         {Object.entries(columns).map(([colId, col]) => (
           <div
             key={colId}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => handleDrop(colId)}
-            className="bg-gray-50 rounded-xl border border-gray-200 p-4"
+            className={`${col.color} w-full`}
           >
-            <div className={`${col.color} rounded-xl p-3 mb-4 border-2`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{col.icon}</span>
-                  <h4 className="font-semibold text-gray-800">{col.title}</h4>
-                </div>
-                <span className="bg-white px-3 py-1 rounded-full text-sm font-bold">
-                  {tasks[colId].length}
-                </span>
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <h4
+                className={`font-bold text-lg ${
+                  colId === "todo"
+                    ? "text-yellow-700"
+                    : colId === "inProgress"
+                    ? "text-blue-700"
+                    : "text-green-700"
+                } flex items-center gap-2`}
+              >
+                {col.icon} {col.title}
+              </h4>
+              <span
+                className={`bg-white border px-3 py-1 rounded-full text-sm font-semibold shadow-sm ${
+                  colId === "todo"
+                    ? "border-yellow-300 text-yellow-700"
+                    : colId === "inProgress"
+                    ? "border-blue-300 text-blue-700"
+                    : "border-green-300 text-green-700"
+                }`}
+              >
+                {tasks[colId].length}
+              </span>
             </div>
 
-            <div className="space-y-3 min-h-[300px]">
+            <div className="space-y-3 min-h-[200px]">
               {tasks[colId].length === 0 ? (
-                <div className="text-center text-gray-400 py-10 text-sm">
+                <p className="text-gray-400 text-sm text-center py-6">
                   Sin tareas
-                </div>
+                </p>
               ) : (
                 tasks[colId].map((task) => (
                   <div
@@ -236,7 +238,7 @@ export default function KanbanBoard() {
         ))}
       </div>
 
-      {/* Modal Crear/Editar */}
+      {/* Modal Crear/Editar Tarea */}
       {showTaskModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -257,7 +259,7 @@ export default function KanbanBoard() {
                     ? setEditingTask({ ...editingTask, title: e.target.value })
                     : setNewTask({ ...newTask, title: e.target.value })
                 }
-                className="w-full border p-2 rounded-lg"
+                className="w-full border p-3 rounded-lg"
               />
               <input
                 type="text"
@@ -271,7 +273,7 @@ export default function KanbanBoard() {
                       })
                     : setNewTask({ ...newTask, assignee: e.target.value })
                 }
-                className="w-full border p-2 rounded-lg"
+                className="w-full border p-3 rounded-lg"
               />
               <select
                 value={editingTask ? editingTask.priority : newTask.priority}
@@ -283,7 +285,7 @@ export default function KanbanBoard() {
                       })
                     : setNewTask({ ...newTask, priority: e.target.value })
                 }
-                className="w-full border p-2 rounded-lg"
+                className="w-full border p-3 rounded-lg"
               >
                 <option value="low">🟢 Baja</option>
                 <option value="medium">🟡 Media</option>
@@ -300,7 +302,7 @@ export default function KanbanBoard() {
                       })
                     : setNewTask({ ...newTask, dueDate: e.target.value })
                 }
-                className="w-full border p-2 rounded-lg"
+                className="w-full border p-3 rounded-lg"
               />
             </div>
 
