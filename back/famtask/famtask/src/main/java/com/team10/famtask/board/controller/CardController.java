@@ -40,8 +40,11 @@ public class CardController {
 
     @GetMapping("/column/{columnId}")
     @PreAuthorize("@securityService.isColumnAccessible(#columnId, authentication)")
-    public ResponseEntity<List<CardResponseDTO>> getByColumn(@PathVariable Long columnId) {
-        List<CardResponseDTO> response = cardService.getCardsByColumn(columnId)
+    public ResponseEntity<List<CardResponseDTO>> getByColumn(
+            @PathVariable Long columnId,
+            @RequestParam(required = false) String status) {
+
+        List<CardResponseDTO> response = cardService.getCardsByColumnAndStatus(columnId, status)
                 .stream()
                 .map(c -> CardResponseDTO.builder()
                         .id(c.getId())
@@ -53,9 +56,9 @@ public class CardController {
                         .columnId(columnId)
                         .build())
                 .toList();
+
         return ResponseEntity.ok(response);
     }
-
     @PutMapping("/{cardId}")
     @PreAuthorize("@securityService.isCardAccessible(#cardId, authentication)")
     public ResponseEntity<CardResponseDTO> update(@PathVariable Long cardId, @RequestBody CardRequestDTO dto) {
@@ -84,8 +87,20 @@ public class CardController {
             @PathVariable Long cardId,
             @RequestBody Map<String, Integer> body) {
 
-        int newPosition = body.get("newPosition");
-        Card card = cardService.moveCard(cardId, newPosition);
+        Integer columnIdInt = body.get("newColumnId");
+        Integer newPosition = body.get("newPosition");
+
+        Card card;
+
+        if (columnIdInt == null) {
+            // mover dentro de la misma columna
+            card = cardService.moveCard(cardId, newPosition);
+
+        } else {
+            // convertir Integer → Long
+            Long newColumnId = columnIdInt.longValue();
+            card = cardService.moveCardToColumn(cardId, newColumnId, newPosition);
+        }
 
         return ResponseEntity.ok(CardResponseDTO.builder()
                 .id(card.getId())
@@ -97,5 +112,6 @@ public class CardController {
                 .columnId(card.getColumn().getId())
                 .build());
     }
+
 
 }

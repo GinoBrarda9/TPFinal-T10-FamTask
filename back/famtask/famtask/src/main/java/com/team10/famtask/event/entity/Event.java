@@ -2,6 +2,7 @@ package com.team10.famtask.event.entity;
 
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.FamilyMember;
+import com.team10.famtask.entity.family.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -48,4 +49,9 @@ public class Event {
     private FamilyMember assignedTo;
 
     private String googleEventId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
 }

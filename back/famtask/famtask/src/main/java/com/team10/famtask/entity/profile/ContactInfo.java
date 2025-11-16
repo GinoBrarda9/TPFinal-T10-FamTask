@@ -3,6 +3,7 @@ package com.team10.famtask.entity.profile;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.team10.famtask.entity.family.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 
 @Entity
@@ -17,7 +18,6 @@ public class ContactInfo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String phone;
     private String address;
     private String city;
     private String province;
@@ -27,4 +27,9 @@ public class ContactInfo {
     @JoinColumn(name = "user_dni", nullable = false, unique = true)
     @JsonIgnore
     private User user;
+
+    // 📱 Número en formato E.164 (WhatsApp friendly)
+    @Pattern(regexp = "^\\+?[1-9]\\d{7,14}$", message = "Número inválido. Debe estar en formato internacional E.164")
+    private String phone;
+
 }
