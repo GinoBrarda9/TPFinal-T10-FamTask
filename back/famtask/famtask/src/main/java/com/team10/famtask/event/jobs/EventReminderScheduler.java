@@ -100,12 +100,15 @@ public class EventReminderScheduler {
         if (phoneOpt.isEmpty() || phoneOpt.get().isBlank()) return false;
 
         String to = "+" + phoneOpt.get().replaceAll("\\D", "");
-        whatsappService.sendTemplate(
+/*        whatsappService.sendTemplate(
                 to,
                 ev.getTitle(),
                 ev.getStartTime().toLocalTime().toString(),
                 safe(ev.getLocation())
-        );
+        );*/
+        String message = "Hola! Este es un recordatorio de tu evento programado. \n" +
+                "El evento " + ev.getTitle() + " comienza a las " + ev.getStartTime() +" hs en " + ev.getLocation() + ".\n Gracias por usar nuestra app.";
+        whatsappService.sendText(to, message);
         return true;
     }
 

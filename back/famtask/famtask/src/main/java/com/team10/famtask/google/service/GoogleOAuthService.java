@@ -41,7 +41,10 @@ public class GoogleOAuthService {
 
             return flow.newAuthorizationUrl()
                     .setRedirectUri(dotenv.get("GOOGLE_REDIRECT_URI"))
+                    .setAccessType("offline")
+                    .setApprovalPrompt("force")
                     .build();
+
 
         } catch (Exception e) {
             throw new RuntimeException("Error creando URL de autorización Google", e);
@@ -69,7 +72,8 @@ public class GoogleOAuthService {
 
             User user = userRepository.findByGoogleId(googleId)
                     .orElseGet(() -> userRepository.findByGoogleEmail(email)
-                            .orElseGet(() -> createNewGoogleUser(googleId, email, name)));
+                            .orElseGet(() -> userRepository.findByEmail(email)
+                                    .orElseGet(() -> createNewGoogleUser(googleId, email, name))));
 
             if (tokenResponse.getRefreshToken() != null) {
                 user.setGoogleRefreshToken(tokenResponse.getRefreshToken());

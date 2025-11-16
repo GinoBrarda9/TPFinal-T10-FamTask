@@ -11,6 +11,7 @@ import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.repository.family.FamilyRepository;
 import com.team10.famtask.service.security.SecurityService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EventService {
 
     private final EventRepository eventRepository;
@@ -55,7 +57,6 @@ public class EventService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Miembro no encontrado."));
         }
 
-
         Event event = Event.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
@@ -66,10 +67,20 @@ public class EventService {
                 .allDay(dto.isAllDay())
                 .family(family)
                 .assignedTo(member)
+                .createdBy(currentUser)              // ✅ siempre seteamos el creador
+                .reminderDayBeforeSent(false)        // opcional: inicializar flags explícitamente
+                .reminderHourBeforeSent(false)
                 .build();
 
         Event saved = eventRepository.save(event);
-        googleCalendarService.syncEvent(saved);
+
+        // ✅ Sincronizar con Google sólo si el creador tiene refresh token válido
+        if (Boolean.TRUE.equals(saved.getCreatedBy().isGoogleLinked())
+                && saved.getCreatedBy().getGoogleRefreshToken() != null) {
+            googleCalendarService.syncEvent(saved);
+        } else {
+            log.warn("⚠️ El creador no tiene Google vinculado o no hay refresh token: se omite sincronización.");
+        }
 
         return saved;
     }
@@ -78,14 +89,10 @@ public class EventService {
     // ✅ OBTENER EVENTOS
     // =======================================================
     public List<Event> getFamilyEvents(Long familyId) {
-        // Validar que la familia exista
         familyRepository.findById(familyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Familia no encontrada."));
-
-        // 🔹 Buscar por ID directamente para evitar comparar objetos distintos
         return eventRepository.findByFamily_IdAndFinishedFalse(familyId);
     }
-
 
     public List<Event> getMemberEvents(String dni) {
         FamilyMember member = memberRepository.findByIdUserDni(dni)
@@ -134,7 +141,15 @@ public class EventService {
         }
 
         Event updated = eventRepository.save(event);
-        googleCalendarService.updateEvent(updated);
+
+        // ✅ Sincronizar updates (usa createdBy por dentro del GoogleCalendarService)
+        if (updated.getCreatedBy() != null
+                && Boolean.TRUE.equals(updated.getCreatedBy().isGoogleLinked())
+                && updated.getCreatedBy().getGoogleRefreshToken() != null) {
+            googleCalendarService.updateEvent(updated);
+        } else {
+            log.warn("⚠️ Evento sin creador con Google válido; se omite update en Calendar.");
+        }
 
         return updated;
     }
@@ -156,7 +171,16 @@ public class EventService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes eliminar este evento personal.");
         }
 
+        // ✅ Primero intentar borrar en Google si corresponde
+        if (event.getCreatedBy() != null
+                && Boolean.TRUE.equals(event.getCreatedBy().isGoogleLinked())
+                && event.getCreatedBy().getGoogleRefreshToken() != null) {
+            googleCalendarService.deleteEvent(event);
+        } else {
+            log.warn("⚠️ Evento sin creador con Google válido; se omite delete en Calendar.");
+        }
+
+        // Luego borrar en BD
         eventRepository.delete(event);
-        googleCalendarService.deleteEvent(event);
     }
 }

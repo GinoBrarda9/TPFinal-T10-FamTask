@@ -1,6 +1,7 @@
 package com.team10.famtask.entity.family;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.team10.famtask.entity.profile.ContactInfo;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -55,6 +56,12 @@ public class User {
     @Column(name = "google_linked", nullable = false)
     private boolean googleLinked = false;
 
+    /** Access token temporal (se refresca automáticamente) */
+    @Lob
+    @JsonIgnore
+    @Column(name = "google_access_token")
+    private String googleAccessToken;
+
     /** Refresh token para acceder siempre a la API de Calendar */
     @Lob
     @JsonIgnore
@@ -72,5 +79,15 @@ public class User {
         if (role == null) {
             role = "USER";
         }
+    }
+
+    // 🔹 Relación con ContactInfo (no rompe nada)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private ContactInfo contactInfo;
+
+    // 🔹 Getter auxiliar para evitar nulls
+    @Transient
+    public String getPhone() {
+        return (contactInfo != null) ? contactInfo.getPhone() : null;
     }
 }

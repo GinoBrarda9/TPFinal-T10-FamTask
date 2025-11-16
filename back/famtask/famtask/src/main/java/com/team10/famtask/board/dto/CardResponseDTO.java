@@ -3,7 +3,7 @@ package com.team10.famtask.board.dto;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 
 @Data
@@ -12,7 +12,7 @@ public class CardResponseDTO {
     private Long id;
     private String title;
     private String description;
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
     private Boolean finished;
     private Integer position;
     private Long columnId;

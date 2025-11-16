@@ -43,7 +43,10 @@ public class SecurityConfig {
         .requestMatchers("/api/auth/**",
                 "/v3/api-docs/**",
                 "/swagger-ui/**",
-                "/swagger-ui.html","/api/auth/google/**").permitAll()
+                "/swagger-ui.html",
+                "/api/auth/google/**",
+                "/api/google/auth/**, " +
+                "/api/google/callback/**").permitAll()
 
         // ✅ Perfil (USER / ADMIN / MEMBER)
         .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
