@@ -357,13 +357,24 @@ export default function CalendarPage() {
           + Evento
         </button>
         <button
-          onClick={() =>
-            (window.location.href =
-              "http://localhost:8080/api/google/oauth/login")
-          }
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold"
+          onClick={async () => {
+            const token = localStorage.getItem("token");
+
+            const res = await fetch(
+              "http://localhost:8080/api/auth/google/login",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            const data = await res.json();
+            window.location.href = data.url; // acá se abre Google Login
+          }}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg"
         >
-          Conectar Google Calendar
+          Conectar Google
         </button>
       </div>
 

@@ -1,40 +1,40 @@
 package com.team10.famtask.google.controller;
 
-import com.team10.famtask.google.dto.GoogleLoginResponse;
 import com.team10.famtask.google.service.GoogleOAuthService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/google")
+@RequestMapping("/api/google/calendar")
 @RequiredArgsConstructor
-public class GoogleAuthController {
+public class GoogleCalendarController {
 
     private final GoogleOAuthService googleOAuthService;
 
     @GetMapping("/auth/url")
-    public String getAuthUrl() {
-        return googleOAuthService.getGoogleAuthorizationUrl();
+    public ResponseEntity<Map<String, String>> getCalendarAuthUrl(@RequestParam String dni) {
+        String url = googleOAuthService.generateCalendarAuthUrl(dni);
+        return ResponseEntity.ok(Map.of("url", url));
     }
 
-    @GetMapping("/google/callback")
-    public void googleCallback(
+    @GetMapping("/callback")
+    public void handleCalendarCallback(
             @RequestParam("code") String code,
+            @RequestParam("state") String dni,
             HttpServletResponse response
     ) throws IOException {
 
-        GoogleLoginResponse loginResponse = googleOAuthService.handleGoogleCallback(code);
+        googleOAuthService.exchangeCalendarCodeForTokens(code, dni);
 
-        // Redirigir al front
-        response.sendRedirect("http://localhost:5173/google/success?token=" + loginResponse.getJwtToken());
+        response.sendRedirect("http://localhost:5173/google/success");
     }
-
-
-
 }
+

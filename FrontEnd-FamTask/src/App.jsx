@@ -5,6 +5,8 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import GoogleSuccess from "./components/GoogleSuccess";
+
 import LoginForm from "./components/LoginForm";
 import SignupForm from "./components/SignupForm";
 import HomePage from "./components/HomePage";
@@ -64,6 +66,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/google/success" element={<GoogleSuccess />} />
 
           {/* ✅ Calendario */}
           <Route
