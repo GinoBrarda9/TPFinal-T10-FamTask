@@ -19,7 +19,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
-
 import java.util.List;
 
 @Configuration
@@ -36,49 +35,61 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-           .authorizeHttpRequests(auth -> auth
-        .requestMatchers("/api/auth/**",
-                "/v3/api-docs/**",
-                "/swagger-ui/**",
-                "/swagger-ui.html",
-                "/api/auth/google/**",
-                "/api/google/auth/**, " +
-                "/api/google/callback/**").permitAll()
 
-        // ✅ Perfil (USER / ADMIN / MEMBER)
-        .requestMatchers("/api/profile/**").hasAnyRole("USER","ADMIN","MEMBER")
+                .authorizeHttpRequests(auth -> auth
 
-        // ✅ Families
-        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-        .requestMatchers("/api/families/**").authenticated()
+                        // ===== GOOGLE OAUTH (PÚBLICO) =====
+                        .requestMatchers("/api/google/**").permitAll()
 
-        // ✅ Events
-        .requestMatchers("/api/events/**").authenticated()
-        .requestMatchers("/api/calendar/**").authenticated()
-                   .requestMatchers("/api/cards/**", "/api/board/**").permitAll()
-        // ✅ Homepage
-        .requestMatchers("/api/homepage/**").permitAll()
+                        // ===== AUTH (PÚBLICO) =====
+                        .requestMatchers("/api/auth/**").permitAll()
 
-        // ✅ Invitations
-        .requestMatchers("/api/invitations/**").authenticated()
+                        // ===== DOCS (PÚBLICO) =====
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
 
-        // ✅ Users
-        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
-        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-        .requestMatchers("/api/users/**").authenticated()
+                        // ===== RUTAS PROTEGIDAS =====
 
-        // ✅ Board
-        .requestMatchers("/api/board/**").authenticated()
+                        // Perfil
+                        .requestMatchers("/api/profile/**")
+                        .hasAnyRole("USER", "ADMIN", "MEMBER")
 
-                   .anyRequest().authenticated()
-)
+                        // Families
+                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+                        .requestMatchers("/api/families/**").authenticated()
 
+                        // Events
+                        .requestMatchers("/api/events/**").authenticated()
+                        .requestMatchers("/api/calendar/**").authenticated()
+
+                        // Cards & board
+                        .requestMatchers("/api/cards/**", "/api/board/**").permitAll()
+
+                        // Homepage
+                        .requestMatchers("/api/homepage/**").permitAll()
+
+                        // Invitations
+                        .requestMatchers("/api/invitations/**").authenticated()
+
+                        // Users
+                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/users/**").authenticated()
+
+                        // Todo lo demás pide JWT
+                        .anyRequest().authenticated()
+                )
 
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
                 .build();
     }
 
@@ -92,18 +103,20 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
-
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
+

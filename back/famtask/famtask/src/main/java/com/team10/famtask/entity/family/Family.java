@@ -1,5 +1,6 @@
 package com.team10.famtask.entity.family;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -10,6 +11,8 @@ import java.util.List;
 @NoArgsConstructor @AllArgsConstructor
 @Builder
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 @Table(name = "families")
 public class Family {
 

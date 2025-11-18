@@ -2,6 +2,7 @@ package com.team10.famtask.entity.family;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -9,6 +10,8 @@ import java.time.LocalDateTime;
 @Entity
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class FamilyMember {
 
     @EmbeddedId
@@ -18,6 +21,8 @@ public class FamilyMember {
     @MapsId("userDni") // vincula el campo de FamilyMemberId.userDni
     @JoinColumn(name = "user_dni")
     @JsonBackReference
+    @JsonIgnore
+
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)

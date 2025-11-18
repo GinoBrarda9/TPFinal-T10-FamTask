@@ -2,14 +2,17 @@ package com.team10.famtask.google.service;
 
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.model.EventDateTime;
+import com.team10.famtask.entity.family.User;
 import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.google.client.GoogleCalendarClient;
+import com.team10.famtask.repository.family.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +22,7 @@ public class GoogleCalendarService {
     private final GoogleCalendarClient googleClient;
 
     private static final String TIMEZONE = "America/Argentina/Cordoba";
+    private final UserRepository userRepository;
 
     /**
      * ✅ Crear evento en Google Calendar (sincronización inicial)
@@ -120,6 +124,17 @@ public class GoogleCalendarService {
         } catch (Exception ex) {
             log.error("❌ Error actualizando evento en Google Calendar", ex);
         }
+    }
+    public Map<String, Object> getCalendarLinkStatus(String dni) {
+        User user = userRepository.findByDni(dni)
+
+                .orElseThrow();
+
+        return Map.of(
+                "linked", user.isGoogleLinked(),
+                "googleEmail", user.getGoogleEmail(),
+                "googleId", user.getGoogleId()
+        );
     }
 
     /**

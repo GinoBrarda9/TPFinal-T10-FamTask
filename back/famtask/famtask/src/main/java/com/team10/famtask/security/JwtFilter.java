@@ -27,7 +27,7 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-
+        System.out.println("➡️ REQUEST PATH: " + request.getServletPath());
         final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -72,10 +72,19 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        boolean shouldSkip = path.startsWith("/api/auth/");
+
+        boolean shouldSkip =
+                path.startsWith("/api/auth/") ||                 // login, register
+                        path.equals("/api/google/calendar/callback") ||  // callback desde Google
+                        path.equals("/api/google/calendar/auth/url");    // URL de autorización
+
         if (shouldSkip) {
             System.out.println("⏭️  Saltando filtro JWT para: " + path);
         }
+
         return shouldSkip;
     }
+
+
+
 }

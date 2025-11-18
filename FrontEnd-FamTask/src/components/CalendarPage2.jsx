@@ -41,11 +41,11 @@ export default function CalendarPage() {
   const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/google/status", {
+    fetch("http://localhost:8080/api/google/calendar/status", {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then((res) => res.json())
-      .then((data) => setGoogleConnected(data.connected));
+      .then((data) => setGoogleConnected(data.linked));
   }, []);
 
   const getEventsForDay = (
@@ -359,9 +359,13 @@ export default function CalendarPage() {
         <button
           onClick={async () => {
             const token = localStorage.getItem("token");
+            if (!token) return;
+
+            const decoded = jwtDecode(token);
+            const dni = decoded.dni || decoded.sub;
 
             const res = await fetch(
-              "http://localhost:8080/api/auth/google/login",
+              `http://localhost:8080/api/google/calendar/auth/url?dni=${dni}`,
               {
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -369,8 +373,13 @@ export default function CalendarPage() {
               }
             );
 
+            if (!res.ok) {
+              console.error("❌ Error:", res.status);
+              return;
+            }
+
             const data = await res.json();
-            window.location.href = data.url; // acá se abre Google Login
+            window.location.href = data.url;
           }}
           className="bg-red-500 text-white px-4 py-2 rounded-lg"
         >
