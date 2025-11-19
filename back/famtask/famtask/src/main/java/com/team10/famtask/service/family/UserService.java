@@ -76,4 +76,9 @@ public class UserService {
         userRepository.deleteById(dni);
         return true;
     }
+
+    public Optional<User> getUserByDniWithFamily(String dni) {
+        return userRepository.findFullUser(dni);
+    }
+
 }

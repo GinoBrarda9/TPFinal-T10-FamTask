@@ -70,7 +70,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/calendar/**").authenticated()
 
                         // Cards & board
-                        .requestMatchers("/api/cards/**", "/api/board/**").permitAll()
+                        .requestMatchers("/api/cards/**", "/api/boards/**").permitAll()
 
                         // Homepage
                         .requestMatchers("/api/homepage/**").permitAll()

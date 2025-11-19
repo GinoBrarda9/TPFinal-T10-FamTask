@@ -1,11 +1,16 @@
 package com.team10.famtask.controller;
 
+import com.team10.famtask.dto.family.UserProfileDTO;
+import com.team10.famtask.entity.family.Family;
+import com.team10.famtask.entity.family.FamilyMember;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.service.family.UserService;
 import com.team10.famtask.service.security.SecurityService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -64,5 +69,28 @@ public class UserController {
         }
         return ResponseEntity.ok(Map.of("message", "Usuario eliminado exitosamente."));
     }
+
+    @GetMapping("/{dni}/profile")
+    @PreAuthorize("hasRole('ADMIN') or @securityService.isOwner(#dni)")
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable String dni) {
+
+        User user = userService.getUserByDniWithFamily(dni)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        Family family = user.getFamilyMemberships()
+                .stream()
+                .map(FamilyMember::getFamily)
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        return ResponseEntity.ok(
+                new UserProfileDTO(
+                        user.getDni(),
+                        user.getName(),
+                        family.getId()
+                )
+        );
+    }
+
 
 }

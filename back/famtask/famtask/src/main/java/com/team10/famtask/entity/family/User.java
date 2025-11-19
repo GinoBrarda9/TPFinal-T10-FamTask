@@ -94,4 +94,5 @@ public class User {
         return (contactInfo != null) ? contactInfo.getPhone() : null;
     }
 
+
 }
