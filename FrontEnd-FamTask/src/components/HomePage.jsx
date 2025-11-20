@@ -595,7 +595,10 @@ export default function HomePage() {
               <span>Calendario</span>
             </button>
 
-            <button className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg text-left">
+            <button
+              onClick={() => navigate("/finances")}
+              className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
@@ -607,10 +610,10 @@ export default function HomePage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.105 0 2 .672 2 1.5S13.105 11 12 11s-2 .672-2 1.5S10.895 14 12 14m0-8c2.21 0 4 1.343 4 3s-1.79 3-4 3"
                 />
               </svg>
-              <span>Tareas</span>
+              <span>Finanzas</span>
             </button>
 
             <button className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg text-left">
