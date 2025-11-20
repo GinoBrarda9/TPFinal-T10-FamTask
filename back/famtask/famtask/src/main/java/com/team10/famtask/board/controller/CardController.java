@@ -19,70 +19,52 @@ public class CardController {
 
     private final CardService cardService;
 
+    // CREATE
     @PostMapping("/column/{columnId}")
-    @PreAuthorize("@securityService.isColumnAccessible(#columnId, authentication)")
+    @PreAuthorize("@securityService.isColumnAccessible(#columnId)")
     public ResponseEntity<CardResponseDTO> create(
             @PathVariable Long columnId,
             @RequestBody CardRequestDTO dto) {
 
         Card card = cardService.createCard(columnId, dto);
 
-        return ResponseEntity.ok(CardResponseDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .dueDate(card.getDueDate())
-                .finished(card.getFinished())
-                .position(card.getPosition())
-                .columnId(columnId)
-                .build());
+        return ResponseEntity.ok(toDTO(card));
     }
 
+    // GET with optional status filter
     @GetMapping("/column/{columnId}")
-    @PreAuthorize("@securityService.isColumnAccessible(#columnId, authentication)")
+    @PreAuthorize("@securityService.isColumnAccessible(#columnId)")
     public ResponseEntity<List<CardResponseDTO>> getByColumn(
             @PathVariable Long columnId,
             @RequestParam(required = false) String status) {
 
         List<CardResponseDTO> response = cardService.getCardsByColumnAndStatus(columnId, status)
                 .stream()
-                .map(c -> CardResponseDTO.builder()
-                        .id(c.getId())
-                        .title(c.getTitle())
-                        .description(c.getDescription())
-                        .dueDate(c.getDueDate())
-                        .finished(c.getFinished())
-                        .position(c.getPosition())
-                        .columnId(columnId)
-                        .build())
+                .map(this::toDTO)
                 .toList();
 
         return ResponseEntity.ok(response);
     }
+
+    // UPDATE
     @PutMapping("/{cardId}")
-    @PreAuthorize("@securityService.isCardAccessible(#cardId, authentication)")
+    @PreAuthorize("@securityService.isCardAccessible(#cardId)")
     public ResponseEntity<CardResponseDTO> update(@PathVariable Long cardId, @RequestBody CardRequestDTO dto) {
         Card card = cardService.updateCard(cardId, dto);
-        return ResponseEntity.ok(CardResponseDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .dueDate(card.getDueDate())
-                .finished(card.getFinished())
-                .position(card.getPosition())
-                .columnId(card.getColumn().getId())
-                .build());
+        return ResponseEntity.ok(toDTO(card));
     }
 
+    // DELETE
     @DeleteMapping("/{cardId}")
-    @PreAuthorize("@securityService.isCardAccessible(#cardId, authentication)")
+    @PreAuthorize("@securityService.isCardAccessible(#cardId)")
     public ResponseEntity<Void> delete(@PathVariable Long cardId) {
         cardService.deleteCard(cardId);
         return ResponseEntity.noContent().build();
     }
 
+    // MOVE
     @PatchMapping("/{cardId}/move")
-    @PreAuthorize("@securityService.isCardAccessible(#cardId, authentication)")
+    @PreAuthorize("@securityService.isCardAccessible(#cardId)")
     public ResponseEntity<CardResponseDTO> move(
             @PathVariable Long cardId,
             @RequestBody Map<String, Integer> body) {
@@ -93,25 +75,41 @@ public class CardController {
         Card card;
 
         if (columnIdInt == null) {
-            // mover dentro de la misma columna
             card = cardService.moveCard(cardId, newPosition);
-
         } else {
-            // convertir Integer → Long
             Long newColumnId = columnIdInt.longValue();
             card = cardService.moveCardToColumn(cardId, newColumnId, newPosition);
         }
 
-        return ResponseEntity.ok(CardResponseDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .dueDate(card.getDueDate())
-                .finished(card.getFinished())
-                .position(card.getPosition())
-                .columnId(card.getColumn().getId())
-                .build());
+        return ResponseEntity.ok(toDTO(card));
+    }
+
+    @PatchMapping("/{cardId}/assign")
+    @PreAuthorize("@securityService.isCardAccessible(#cardId)")
+    public ResponseEntity<CardResponseDTO> assignUser(
+            @PathVariable Long cardId,
+            @RequestBody Map<String, String> body) {
+
+        String dni = body.get("assignedUserDni");
+
+        Card card = cardService.assignUser(cardId, dni);
+
+        return ResponseEntity.ok(toDTO(card));
     }
 
 
+    private CardResponseDTO toDTO(Card c) {
+        return CardResponseDTO.builder()
+                .id(c.getId())
+                .title(c.getTitle())
+                .description(c.getDescription())
+                .dueDate(c.getDueDate())
+                .finished(c.getFinished())
+                .position(c.getPosition())
+                .columnId(c.getColumn().getId())
+                .assignedUserDni(
+                        c.getAssignedUser() != null ? c.getAssignedUser().getDni() : null
+                )
+                .build();
+    }
 }

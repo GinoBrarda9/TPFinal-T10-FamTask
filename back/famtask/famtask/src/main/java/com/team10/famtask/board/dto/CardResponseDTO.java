@@ -16,4 +16,6 @@ public class CardResponseDTO {
     private Boolean finished;
     private Integer position;
     private Long columnId;
+    private String assignedUserDni;
+
 }

@@ -2,13 +2,15 @@ package com.team10.famtask.controller;
 
 import com.team10.famtask.dto.ErrorResponse;
 import com.team10.famtask.dto.family.FamilyDTO;
-import com.team10.famtask.dto.FamilyMemberDTO;
+import com.team10.famtask.dto.family.FamilyMemberDTO;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.service.family.FamilyService;
 import com.team10.famtask.service.security.SecurityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +23,7 @@ public class FamilyController {
 
     private final FamilyService familyService;
     private final SecurityService securityService;
+    private final FamilyMemberRepository familyMemberRepository;
 
     @PostMapping
     public ResponseEntity<?> createFamily(@RequestBody Map<String, String> body) {
@@ -51,6 +54,24 @@ public class FamilyController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/{familyId}/members")
+    @PreAuthorize("@securityService.isMemberOfFamily(#familyId, authentication)")
+    public ResponseEntity<List<FamilyMemberDTO>> getMembers(@PathVariable Long familyId) {
+
+        List<FamilyMemberDTO> response = familyMemberRepository
+                .findById_FamilyId(familyId)
+                .stream()
+                .map(m -> FamilyMemberDTO.builder()
+                        .dni(m.getUser().getDni())
+                        .name(m.getUser().getName())
+                        .email(m.getUser().getEmail())
+                        .role(m.getRole())
+                        .build()
+                )
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
 
 
 }

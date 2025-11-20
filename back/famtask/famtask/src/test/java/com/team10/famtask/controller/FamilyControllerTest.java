@@ -3,6 +3,7 @@ package com.team10.famtask.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.repository.family.FamilyMemberRepository;
 import com.team10.famtask.service.family.FamilyService;
 import com.team10.famtask.service.security.SecurityService;
 import com.team10.famtask.util.Helper;
@@ -26,6 +27,8 @@ class FamilyControllerTest {
     private FamilyService familyService;
     private SecurityService securityService;
     private ObjectMapper objectMapper;
+    private FamilyMemberRepository familyMemberRepository;
+
 
     private User adminUser;
     private User normalUser;
@@ -35,8 +38,9 @@ class FamilyControllerTest {
         familyService = mock(FamilyService.class);
         securityService = mock(SecurityService.class);
         objectMapper = new ObjectMapper();
+        familyMemberRepository = mock(FamilyMemberRepository.class);
+        FamilyController controller = new FamilyController(familyService, securityService, familyMemberRepository);
 
-        FamilyController controller = new FamilyController(familyService, securityService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
 
         // Usuarios para los tests

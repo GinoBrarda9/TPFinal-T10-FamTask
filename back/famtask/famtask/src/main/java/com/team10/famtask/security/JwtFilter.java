@@ -29,6 +29,7 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -40,14 +41,20 @@ public class JwtFilter extends OncePerRequestFilter {
         final String dni = jwtService.extractDni(jwt);
         String role = jwtService.extractRole(jwt);
 
-        // 🔍 DEBUG opcional
         System.out.println("=== JWT FILTER === " + request.getRequestURI());
-        System.out.println("SUB: " + subject + " | DNI: " + dni + " | ROLE: " + role);
+        System.out.println("dni=" + dni + " | role=" + role);
+        System.out.println("===== DEBUG TIME =====");
+        System.out.println("System.currentTimeMillis(): " + System.currentTimeMillis());
+        System.out.println("new Date(): " + new java.util.Date());
+        System.out.println("LocalDateTime.now(): " + java.time.LocalDateTime.now());
+        System.out.println("ZoneId: " + java.time.ZoneId.systemDefault());
+        System.out.println("======================");
 
-        if (subject != null && SecurityContextHolder.getContext().getAuthentication() == null
+
+        if (dni != null
+                && SecurityContextHolder.getContext().getAuthentication() == null
                 && jwtService.isTokenValid(jwt)) {
 
-            // ✅ Normalizar el rol
             String effRole = (role == null || role.isBlank()) ? "USER" : role.trim().toUpperCase();
             if (!effRole.startsWith("ROLE_")) {
                 effRole = "ROLE_" + effRole;
@@ -55,7 +62,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
             UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
-                            dni, // principal
+                            dni,
                             null,
                             List.of(new SimpleGrantedAuthority(effRole))
                     );
@@ -70,12 +77,29 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+
         String path = request.getServletPath();
-        boolean shouldSkip = path.startsWith("/api/auth/");
-        if (shouldSkip) {
-            System.out.println("⏭️  Saltando filtro JWT para: " + path);
+        String method = request.getMethod();
+
+        // 💥 FUNDAMENTAL: evitar que OPTIONS pase por este filtro
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            System.out.println("⏭️ Saltando JWT para OPTIONS " + path);
+            return true;
         }
-        return shouldSkip;
+
+        // Endpoints públicos
+        boolean skip =
+                path.startsWith("/api/auth/") ||
+                        path.startsWith("/api/google/") ||
+                        path.startsWith("/swagger-ui/") ||
+                        path.startsWith("/v3/api-docs/") ||
+                        path.equals("/error");
+
+        if (skip) {
+            System.out.println("⏭️ Saltando JWT para: " + path);
+        }
+
+        return skip;
     }
 }
