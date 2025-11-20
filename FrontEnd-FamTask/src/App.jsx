@@ -5,10 +5,13 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import GoogleSuccess from "./components/GoogleSuccess";
+
 import LoginForm from "./components/LoginForm";
 import SignupForm from "./components/SignupForm";
 import HomePage from "./components/HomePage";
 import ProfilePage from "./components/ProfilePage";
+import CalendarPage from "./components/CalendarPage2";
 import "./App.css";
 
 function App() {
@@ -63,7 +66,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/google/success" element={<GoogleSuccess />} />
 
+          {/* ✅ Calendario */}
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <CalendarPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Ruta 404 - Redirigir según autenticación */}
           <Route
             path="*"

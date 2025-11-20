@@ -27,7 +27,7 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-
+        System.out.println("➡️ REQUEST PATH: " + request.getServletPath());
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -80,26 +80,29 @@ public class JwtFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
 
         String path = request.getServletPath();
-        String method = request.getMethod();
+String method = request.getMethod();
 
-        // 💥 FUNDAMENTAL: evitar que OPTIONS pase por este filtro
-        if ("OPTIONS".equalsIgnoreCase(method)) {
-            System.out.println("⏭️ Saltando JWT para OPTIONS " + path);
-            return true;
-        }
+// 💥 FUNDAMENTAL: evitar que OPTIONS pase por este filtro
+if ("OPTIONS".equalsIgnoreCase(method)) {
+    System.out.println("⏭️ Saltando JWT para OPTIONS " + path);
+    return true;
+}
 
-        // Endpoints públicos
-        boolean skip =
-                path.startsWith("/api/auth/") ||
-                        path.startsWith("/api/google/") ||
-                        path.startsWith("/swagger-ui/") ||
-                        path.startsWith("/v3/api-docs/") ||
-                        path.equals("/error");
+// ===== ENDPOINTS PÚBLICOS =====
+boolean skip =
+        path.startsWith("/api/auth/") ||                 // login/register
+        path.startsWith("/api/google/") ||               // Google OAuth (general)
+        path.equals("/api/google/calendar/callback") ||  // callback desde Google (develop)
+        path.equals("/api/google/calendar/auth/url") ||  // URL de autorización (develop)
+        path.startsWith("/swagger-ui/") ||               // Swagger UI
+        path.startsWith("/v3/api-docs/") ||              // OpenAPI docs
+        path.equals("/error");                           // error handler
 
-        if (skip) {
-            System.out.println("⏭️ Saltando JWT para: " + path);
-        }
+if (skip) {
+    System.out.println("⏭️ Saltando JWT para: " + path);
+}
 
-        return skip;
-    }
+return skip;
+
+
 }

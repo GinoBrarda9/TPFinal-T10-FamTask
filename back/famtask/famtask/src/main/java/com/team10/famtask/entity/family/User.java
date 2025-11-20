@@ -1,6 +1,7 @@
 package com.team10.famtask.entity.family;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.team10.famtask.entity.profile.ContactInfo;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -18,6 +19,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class User {
 
     @Id
@@ -90,4 +93,6 @@ public class User {
     public String getPhone() {
         return (contactInfo != null) ? contactInfo.getPhone() : null;
     }
+
+
 }

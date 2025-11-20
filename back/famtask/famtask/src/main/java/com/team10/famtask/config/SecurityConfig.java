@@ -20,6 +20,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 import java.util.List;
 
@@ -37,73 +38,80 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // 🔥 LOGGEO del 403/401
-                .exceptionHandling(ex -> ex
-                        .accessDeniedHandler((req, res, e) -> {
-                            System.out.println("🔥 ACCESS DENIED HANDLER (403)");
-                            System.out.println("➡ Exception: " + e.getClass().getSimpleName());
-                            System.out.println("➡ Message: " + e.getMessage());
-                            res.sendError(HttpServletResponse.SC_FORBIDDEN);
-                        })
-                        .authenticationEntryPoint((req, res, e) -> {
-                            var auth = SecurityContextHolder.getContext().getAuthentication();
+.exceptionHandling(ex -> ex
+        .accessDeniedHandler((req, res, e) -> {
+            System.out.println("🔥 ACCESS DENIED HANDLER (403)");
+            System.out.println("➡ Exception: " + e.getClass().getSimpleName());
+            System.out.println("➡ Message: " + e.getMessage());
+            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+        })
+        .authenticationEntryPoint((req, res, e) -> {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            System.out.println("🚫 AUTH ENTRY POINT (401/403)");
+            System.out.println("➡ URI: " + req.getRequestURI());
+            System.out.println("➡ Exception: " + e.getClass().getSimpleName());
+            System.out.println("➡ Message: " + e.getMessage());
+            System.out.println("➡ Auth at entry point: " + auth);
+            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+        })
+)
 
-                            System.out.println("🚫 AUTH ENTRY POINT (401/403)");
-                            System.out.println("➡ URI: " + req.getRequestURI());
-                            System.out.println("➡ Exception: " + e.getClass().getSimpleName());
-                            System.out.println("➡ Message: " + e.getMessage());
-                            System.out.println("➡ Auth at entry point: " + auth);
+.authorizeHttpRequests(auth -> auth
 
-                            res.sendError(HttpServletResponse.SC_FORBIDDEN);
-                        })
+        // ===== GOOGLE OAUTH (PÚBLICO) =====
+        .requestMatchers("/api/google/**").permitAll()
+        .requestMatchers("/api/auth/google/**").permitAll()
+        .requestMatchers("/api/google/callback/**").permitAll()
 
-                )
+        // ===== AUTH GENERAL (PÚBLICO) =====
+        .requestMatchers("/api/auth/**").permitAll()
 
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/api/auth/google/**",
-                                "/api/google/auth/**",
-                                "/api/google/callback/**",
-                                "/error"
-                        ).permitAll()
+        // ===== DOCS (PÚBLICO) =====
+        .requestMatchers(
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html"
+        ).permitAll()
 
-                        .requestMatchers("/api/profile/**")
-                        .hasAnyRole("USER","ADMIN","MEMBER")
+        // ===== PROFILE =====
+        .requestMatchers("/api/profile/**")
+        .hasAnyRole("USER", "ADMIN", "MEMBER")
 
-                        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
-                        .requestMatchers("/api/families/**").authenticated()
+        // ===== FAMILIES =====
+        .requestMatchers(HttpMethod.POST, "/api/families/**").hasRole("ADMIN")
+        .requestMatchers("/api/families/**").authenticated()
 
-                        .requestMatchers("/api/events/**").authenticated()
-                        .requestMatchers("/api/calendar/**").authenticated()
+        // ===== EVENTS =====
+        .requestMatchers("/api/events/**").authenticated()
+        .requestMatchers("/api/calendar/**").authenticated()
 
-                        .requestMatchers("/api/homepage/**").permitAll()
+        // ===== BOARD & CARDS =====
+        .requestMatchers("/api/board/**").authenticated()
+        .requestMatchers("/api/cards/**").authenticated()
 
-                        .requestMatchers("/api/invitations/**").authenticated()
+        // ===== HOMEPAGE =====
+        .requestMatchers("/api/homepage/**").permitAll()
 
-                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/users/**").authenticated()
+        // ===== INVITATIONS =====
+        .requestMatchers("/api/invitations/**").authenticated()
 
-                        // Board
-                        .requestMatchers("/api/board/**").authenticated()
+        // ===== USERS =====
+        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+        .requestMatchers("/api/users/**").authenticated()
 
-                        // Cards
-                        .requestMatchers("/api/cards/**").authenticated()
+        // ===== DEFAULT =====
+        .anyRequest().authenticated()
+)
+       .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+       .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
-                        .anyRequest().authenticated()
-                )
-
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+       .build();
     }
 
     @Bean
@@ -118,6 +126,7 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -126,6 +135,8 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 }
+

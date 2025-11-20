@@ -12,8 +12,12 @@ import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -107,4 +111,106 @@ public class GoogleOAuthService {
 
         return userRepository.save(newUser);
     }
+    public Map<String, Object> getCalendarLinkStatus(String dni) {
+        User user = userRepository.findById(dni)
+                .orElseThrow();
+
+        return Map.of(
+                "linked", user.isGoogleLinked(),
+                "googleEmail", user.getGoogleEmail(),
+                "googleId", user.getGoogleId()
+        );
+    }
+
+
+    public String generateCalendarAuthUrl(String dni) {
+
+        String clientId = dotenv.get("GOOGLE_CLIENT_ID");
+        String redirectUri = dotenv.get("GOOGLE_REDIRECT_URI");
+
+        String scopes =
+                "openid email profile "
+                        + "https://www.googleapis.com/auth/calendar "
+                        + "https://www.googleapis.com/auth/calendar.events";
+
+
+        String authorizationUrl =
+                "https://accounts.google.com/o/oauth2/v2/auth"
+                        + "?client_id=" + clientId
+                        + "&redirect_uri=" + redirectUri
+                        + "&response_type=code"
+                        + "&scope=" + URLEncoder.encode(scopes, StandardCharsets.UTF_8)
+                        + "&access_type=offline"
+                        + "&prompt=consent"
+                        + "&state=" + dni;
+
+        return authorizationUrl;
+    }
+    public void exchangeCalendarCodeForTokens(String code, String dni) {
+        try {
+            var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+
+            var tokenResponse = new GoogleAuthorizationCodeTokenRequest(
+                    httpTransport,
+                    JSON_FACTORY,
+                    dotenv.get("GOOGLE_CLIENT_ID"),
+                    dotenv.get("GOOGLE_CLIENT_SECRET"),
+                    code,
+                    dotenv.get("GOOGLE_REDIRECT_URI")
+            ).execute();
+
+            String accessToken = tokenResponse.getAccessToken();
+
+            // ================================
+            // 🔥 Obtener datos del usuario real
+            // ================================
+            var requestFactory = httpTransport.createRequestFactory(
+                    request -> request.getHeaders().setAuthorization("Bearer " + accessToken)
+            );
+
+            var userInfoRequest = requestFactory.buildGetRequest(
+                    new com.google.api.client.http.GenericUrl("https://www.googleapis.com/oauth2/v2/userinfo")
+            );
+
+            var userInfoResponse = userInfoRequest.execute();
+            String userInfoJson = userInfoResponse.parseAsString();
+
+            // 🔍 DEBUG para ver qué devuelve Google
+            System.out.println("🔍 accessToken = " + accessToken);
+            System.out.println("🔍 userInfo JSON = " + userInfoJson);
+
+            // Convertir JSON → Map
+            var gson = new com.google.gson.Gson();
+            var userInfo = gson.fromJson(userInfoJson, Map.class);
+
+            String googleId = (String) userInfo.get("id");
+            String email = (String) userInfo.get("email");
+            String name = (String) userInfo.get("name");
+
+            // ================================
+            // 🔥 Guardar en base de datos
+            // ================================
+            userRepository.findById(dni).ifPresent(user -> {
+                user.setGoogleEmail(email);
+                user.setGoogleId(googleId);
+                user.setGoogleAccessToken(accessToken);
+
+                if (tokenResponse.getRefreshToken() != null) {
+                    user.setGoogleRefreshToken(tokenResponse.getRefreshToken());
+                }
+
+                user.setGoogleLinked(true);
+                user.setGoogleTokenUpdatedAt(LocalDateTime.now());
+
+                userRepository.save(user);
+            });
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error intercambiando código por tokens de Calendar", e);
+        }
+    }
+
+
+
+
 }
