@@ -119,15 +119,22 @@ public class WhatsAppService {
     }
 
     public void sendCardReminder(String e164Phone, String title, String type) {
+
         String message = switch (type) {
-            case "DAY_BEFORE" -> "📌 Falta 1 día para tu tarea: " + title;
-            case "HOUR_BEFORE" -> "⏰ Falta 1 hora para: " + title;
-            case "EXPIRED" -> "❗ La tarea está vencida: " + title;
-            default -> "🔔 Recordatorio: " + title;
+            case "DAY_BEFORE" ->
+                    "📆 *Recordatorio de tarea*\n" +
+                            "Falta *1 día* para: *" + title + "*";
+            case "HOUR_BEFORE" ->
+                    "⏰ *Recordatorio de tarea*\n" +
+                            "Falta *1 hora* para: *" + title + "*";
+            case "EXPIRED" ->
+                    "❗ *Tarea vencida*\n" +
+                            "La tarea *" + title + "* ya está atrasada.";
+            default ->
+                    "🔔 Recordatorio: *" + title + "*";
         };
 
         sendText(e164Phone, message);
     }
-
 
 }

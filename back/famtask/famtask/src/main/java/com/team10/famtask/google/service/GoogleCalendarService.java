@@ -69,6 +69,12 @@ public class GoogleCalendarService {
 
             log.info("✅ Evento creado y sincronizado con Google Calendar. ID={}", created.getId());
 
+        } catch (IllegalStateException e) {
+            if ("GOOGLE_TOKEN_REVOKED".equals(e.getMessage())) {
+                log.warn("⚠️ El usuario debe volver a vincular Google (refresh token revocado). Se omite sync.");
+            } else {
+                log.error("❌ Error de estado al sincronizar evento con Google Calendar", e);
+            }
         } catch (Exception ex) {
             log.error("❌ Error sincronizando evento con Google Calendar", ex);
         }
