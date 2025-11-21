@@ -2,340 +2,258 @@ import React, { useState, useEffect } from "react";
 
 export default function KanbanBoard() {
   const [columns, setColumns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showNewColumnModal, setShowNewColumnModal] = useState(false);
-  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [selectedColumn, setSelectedColumn] = useState(null);
-  const [newColumnName, setNewColumnName] = useState("");
-  const [newColumnColor, setNewColumnColor] = useState("#FFB020");
-  const [draggedTask, setDraggedTask] = useState(null);
+  const [familyMembers, setFamilyMembers] = useState([]);
   const [boardId, setBoardId] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedColumnId, setSelectedColumnId] = useState(null);
 
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    priority: "MEDIUM",
+    assignedUserDni: "",
     dueDate: "",
+    status: "PENDING", // mapea a tu CardStatus
   });
 
-  // EXTRAER DNI DEL JWT
+  const token = localStorage.getItem("token");
+
   const getDniFromToken = () => {
-    const token = localStorage.getItem("token");
     if (!token) return null;
     const payload = JSON.parse(atob(token.split(".")[1]));
     return payload.dni;
   };
 
-  // Cargar tablero al montar
+  // -------------------------------------------------------------------------
+  // LOAD BOARD + FAMILY MEMBERS
+  // -------------------------------------------------------------------------
   useEffect(() => {
     loadBoard();
+    loadFamilyMembers();
   }, []);
+
+  const loadFamilyMembers = async () => {
+    try {
+      const resp = await fetch("http://localhost:8080/api/homepage", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await resp.json();
+      setFamilyMembers(data.members || []);
+    } catch (e) {
+      console.error("Error cargando miembros:", e);
+    }
+  };
 
   const loadBoard = async () => {
     try {
-      const token = localStorage.getItem("token");
       const dni = getDniFromToken();
 
-      // Obtener perfil → familyId
-      const profileRes = await fetch(
+      // Perfil del usuario → familyId
+      const profRes = await fetch(
         `http://localhost:8080/api/users/${dni}/profile`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      const profile = await profileRes.json();
+      const profile = await profRes.json();
       const familyId = profile.familyId;
 
-      // Obtener Board de esa familia
+      // Board de esa familia
       const boardRes = await fetch(
         `http://localhost:8080/api/board/family/${familyId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!boardRes.ok) throw new Error("Error al obtener tablero");
-
       const board = await boardRes.json();
       setBoardId(board.boardId);
 
-      // Obtener columnas del tablero
-      const columnsRes = await fetch(
+      // Columnas
+      const colsRes = await fetch(
         `http://localhost:8080/api/board/${board.boardId}/columns`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const cols = await columnsRes.json();
-      setColumns(cols || []);
-    } catch (error) {
-      console.error("Error cargando board:", error);
+      const columnsData = await colsRes.json();
+      setColumns(columnsData || []);
+    } catch (err) {
+      console.error("Error cargando tablero:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Crear columna
-  const handleAddColumn = async () => {
-    if (!newColumnName.trim()) return alert("Nombre requerido");
+  // -------------------------------------------------------------------------
+  // CREATE TASK
+  // -------------------------------------------------------------------------
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim()) return alert("El título es obligatorio");
+    if (!newTask.assignedUserDni) return alert("Seleccioná un usuario");
 
     try {
-      const token = localStorage.getItem("token");
-
       const res = await fetch(
-        `http://localhost:8080/api/board/${boardId}/column`,
+        `http://localhost:8080/api/cards/column/${selectedColumnId}`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name: newColumnName }),
+          body: JSON.stringify(newTask),
         }
       );
+      console.log("Creando card en columna:", selectedColumnId);
 
-      if (res.ok) {
-        const newCol = await res.json();
-        setColumns([...columns, { ...newCol, tasks: [] }]);
-        setShowNewColumnModal(false);
-        setNewColumnName("");
-        setNewColumnColor("#FFB020");
-      }
-    } catch (error) {
-      console.error("Error creando columna:", error);
+      if (!res.ok) throw new Error("Error creando tarea");
+
+      const created = await res.json();
+
+      // Agregarla a la UI
+      setColumns(
+        columns.map((c) =>
+          c.id === selectedColumnId
+            ? { ...c, cards: [...(c.cards || []), created] }
+            : c
+        )
+      );
+
+      closeTaskModal();
+    } catch (e) {
+      console.error("Error creando card:", e);
     }
   };
 
-  // Eliminar columna
-  const handleDeleteColumn = async (columnId) => {
-    if (!confirm("¿Eliminar columna y tareas?")) return;
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(
-        `http://localhost:8080/api/board/column/${columnId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (res.ok) {
-        setColumns(columns.filter((c) => c.id !== columnId));
-      }
-    } catch (error) {
-      console.error("Error al eliminar columna:", error);
-    }
+  const closeTaskModal = () => {
+    setShowTaskModal(false);
+    setNewTask({
+      title: "",
+      description: "",
+      assignedUserDni: "",
+      dueDate: "",
+      status: "PENDING",
+    });
   };
 
-  // Crear tarea
-  const handleAddTask = async () => {
-    if (!newTask.title.trim()) return alert("Título requerido");
+  // -------------------------------------------------------------------------
+  // DRAG & DROP
+  // -------------------------------------------------------------------------
+  const [draggedCard, setDraggedCard] = useState(null);
+
+  const handleDragStart = (card, colId) => {
+    setDraggedCard({ card, fromColumnId: colId });
+  };
+
+  const handleDrop = async (e, newColumnId) => {
+    e.preventDefault();
+
+    if (!draggedCard) return;
+    const { card, fromColumnId } = draggedCard;
 
     try {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(`http://localhost:8080/api/tasks`, {
-        method: "POST",
+      await fetch(`http://localhost:8080/api/cards/${card.id}/move`, {
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...newTask,
-          columnId: selectedColumn,
+          newColumnId: newColumnId,
+          newPosition: 0,
         }),
       });
-
-      if (res.ok) {
-        const createdTask = await res.json();
-
-        setColumns(
-          columns.map((col) =>
-            col.id === selectedColumn
-              ? { ...col, tasks: [...col.tasks, createdTask] }
-              : col
-          )
-        );
-
-        setShowNewTaskModal(false);
-        setNewTask({
-          title: "",
-          description: "",
-          priority: "MEDIUM",
-          dueDate: "",
-        });
-      }
-    } catch (error) {
-      console.error("Error creando tarea:", error);
-    }
-  };
-
-  // Drag & Drop
-  const handleDragStart = (e, task, columnId) => {
-    setDraggedTask({ task, fromColumnId: columnId });
-  };
-
-  const handleDrop = async (e, toColumnId) => {
-    e.preventDefault();
-
-    if (!draggedTask || draggedTask.fromColumnId === toColumnId) return;
-
-    try {
-      const token = localStorage.getItem("token");
-
-      await fetch(
-        `http://localhost:8080/api/tasks/${draggedTask.task.id}/move`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ newColumnId: toColumnId }),
-        }
-      );
 
       // Actualizar UI
       setColumns(
         columns.map((col) => {
-          if (col.id === draggedTask.fromColumnId)
+          // quitar de columna anterior
+          if (col.id === fromColumnId) {
             return {
               ...col,
-              tasks: col.tasks.filter((t) => t.id !== draggedTask.task.id),
+              cards: col.cards.filter((c) => c.id !== card.id),
             };
-
-          if (col.id === toColumnId)
+          }
+          // agregar a columna nueva
+          if (col.id === newColumnId) {
             return {
               ...col,
-              tasks: [...col.tasks, draggedTask.task],
+              cards: [...(col.cards || []), card],
             };
-
+          }
           return col;
         })
       );
-    } finally {
-      setDraggedTask(null);
+    } catch (err) {
+      console.error("Error moviendo card:", err);
     }
+
+    setDraggedCard(null);
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "URGENT":
-        return "bg-red-100 text-red-800 border-red-300";
-      case "HIGH":
-        return "bg-orange-100 text-orange-800 border-orange-300";
-      case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "LOW":
-        return "bg-green-100 text-green-800 border-green-300";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
-    }
-  };
+  // -------------------------------------------------------------------------
+  // UI
+  // -------------------------------------------------------------------------
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando tablero...</p>
-        </div>
+      <div className="flex justify-center p-10 text-gray-500">
+        Cargando tablero...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">
-            Tablero de Tareas
-          </h1>
-          <p className="text-gray-600">Organiza las tareas de tu familia</p>
-        </div>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h1 className="text-3xl font-bold mb-4 text-gray-800">
+        Tablero de Tareas
+      </h1>
 
-        <button
-          onClick={() => setShowNewColumnModal(true)}
-          className="bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-6 py-3 rounded-xl shadow-lg hover:scale-105 transition"
-        >
-          + Nueva Columna
-        </button>
-      </div>
-
-      {/* Board */}
-      <div className="flex gap-6 overflow-x-auto pb-6">
-        {columns.map((column) => (
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {columns.map((col) => (
           <div
-            key={column.id}
-            className="flex-shrink-0 w-80 bg-white rounded-2xl shadow-lg border-2"
-            style={{ borderColor: column.color || "#FFB020" }}
+            key={col.id}
+            className="w-80 flex-shrink-0 bg-white rounded-2xl shadow border"
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, column.id)}
+            onDrop={(e) => handleDrop(e, col.id)}
           >
-            {/* Header Columna */}
             <div
-              className="p-4 rounded-t-2xl"
-              style={{ backgroundColor: column.color || "#FFB020" }}
+              className="p-4 rounded-t-2xl text-white font-semibold"
+              style={{ background: col.color || "#FFB020" }}
             >
-              <div className="flex justify-between">
-                <h3 className="text-lg font-bold text-white">{column.name}</h3>
-
-                <div className="flex gap-2">
-                  <span className="bg-white bg-opacity-30 text-white px-2 py-1 rounded-lg text-sm">
-                    {column.tasks?.length || 0}
-                  </span>
-
-                  <button
-                    onClick={() => handleDeleteColumn(column.id)}
-                    className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
+              {col.name}
             </div>
 
-            {/* Tareas */}
-            <div className="p-4 space-y-3 overflow-y-auto max-h-[600px]">
-              {column.tasks?.map((task) => (
+            <div className="p-3 space-y-3 max-h-[65vh] overflow-y-auto">
+              {(col.cards || []).map((card) => (
                 <div
-                  key={task.id}
+                  key={card.id}
+                  className="bg-gray-50 p-4 rounded-xl border cursor-move"
                   draggable
-                  onDragStart={(e) => handleDragStart(e, task, column.id)}
-                  className="bg-gray-50 rounded-xl p-4 border hover:shadow-md cursor-move"
+                  onDragStart={() => handleDragStart(card, col.id)}
                 >
-                  <h4 className="font-semibold text-gray-800">{task.title}</h4>
-
-                  {task.description && (
-                    <p className="text-sm text-gray-600">{task.description}</p>
+                  <h4 className="font-bold">{card.title}</h4>
+                  {card.description && (
+                    <p className="text-sm mt-1">{card.description}</p>
                   )}
 
-                  <div className="flex justify-between mt-2">
-                    <span
-                      className={`px-2 py-1 rounded-lg text-xs border ${getPriorityColor(
-                        task.priority
-                      )}`}
-                    >
-                      {task.priority}
-                    </span>
-
-                    {task.dueDate && (
-                      <span className="text-xs text-gray-500">
-                        📅 {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
+                  <div className="text-xs text-gray-500 mt-2">
+                    {card.dueDate && (
+                      <div>
+                        📅 {new Date(card.dueDate).toLocaleDateString("es-AR")}
+                      </div>
                     )}
                   </div>
                 </div>
               ))}
 
-              {/* Botón Nueva tarea */}
               <button
+                className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600 hover:border-amber-600"
                 onClick={() => {
-                  setSelectedColumn(column.id);
-                  setShowNewTaskModal(true);
+                  setSelectedColumnId(col.id);
+                  setShowTaskModal(true);
                 }}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-amber-400 hover:text-amber-600 transition flex justify-center gap-2"
               >
                 + Nueva Tarea
               </button>
@@ -344,105 +262,114 @@ export default function KanbanBoard() {
         ))}
       </div>
 
-      {/* Modal Nueva columna */}
-      {showNewColumnModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Nueva Columna</h2>
-
-            <input
-              type="text"
-              className="border w-full p-3 rounded-xl mb-3"
-              placeholder="Nombre"
-              value={newColumnName}
-              onChange={(e) => setNewColumnName(e.target.value)}
-            />
-
-            <input
-              type="color"
-              className="w-full h-12 rounded-xl mb-4"
-              value={newColumnColor}
-              onChange={(e) => setNewColumnColor(e.target.value)}
-            />
-
-            <div className="flex gap-4 justify-end">
+      {/* ------------------------------------------------------------------ */}
+      {/* MODAL NUEVA TAREA */}
+      {/* ------------------------------------------------------------------ */}
+      {showTaskModal && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Nueva Tarea</h2>
               <button
-                onClick={() => setShowNewColumnModal(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-xl"
+                onClick={closeTaskModal}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
               >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAddColumn}
-                className="bg-green-600 text-white px-4 py-2 rounded-xl"
-              >
-                Crear
+                ✕
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Modal Nueva tarea */}
-      {showNewTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center p-4">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Nueva Tarea</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="font-semibold">Título</label>
+                <input
+                  type="text"
+                  className="border p-3 rounded-xl w-full mt-1"
+                  value={newTask.title}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, title: e.target.value })
+                  }
+                />
+              </div>
 
-            <input
-              type="text"
-              placeholder="Título"
-              className="border w-full p-3 rounded-xl mb-3"
-              value={newTask.title}
-              onChange={(e) =>
-                setNewTask({ ...newTask, title: e.target.value })
-              }
-            />
+              <div className="md:col-span-2">
+                <label className="font-semibold">Descripción</label>
+                <textarea
+                  rows={3}
+                  className="border p-3 rounded-xl w-full mt-1"
+                  value={newTask.description}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, description: e.target.value })
+                  }
+                />
+              </div>
 
-            <textarea
-              placeholder="Descripción"
-              className="border w-full p-3 rounded-xl mb-3"
-              value={newTask.description}
-              onChange={(e) =>
-                setNewTask({ ...newTask, description: e.target.value })
-              }
-            />
+              <div>
+                <label className="font-semibold">Asignar a</label>
+                <select
+                  className="border p-3 rounded-xl w-full mt-1"
+                  value={newTask.assignedUserDni}
+                  onChange={(e) =>
+                    setNewTask({
+                      ...newTask,
+                      assignedUserDni: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Seleccionar</option>
+                  {familyMembers.map((m) => (
+                    <option key={m.dni} value={m.dni}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <select
-              className="border w-full p-3 rounded-xl mb-3"
-              value={newTask.priority}
-              onChange={(e) =>
-                setNewTask({ ...newTask, priority: e.target.value })
-              }
-            >
-              <option value="LOW">Baja</option>
-              <option value="MEDIUM">Media</option>
-              <option value="HIGH">Alta</option>
-              <option value="URGENT">Urgente</option>
-            </select>
+              <div>
+                <label className="font-semibold">Fecha límite</label>
+                <input
+                  type="date"
+                  className="border p-3 rounded-xl w-full mt-1"
+                  value={newTask.dueDate}
+                  onChange={(e) =>
+                    setNewTask({
+                      ...newTask,
+                      dueDate: e.target.value
+                        ? `${e.target.value}T00:00:00`
+                        : null,
+                    })
+                  }
+                />
+              </div>
 
-            <input
-              type="date"
-              className="border w-full p-3 rounded-xl mb-4"
-              value={newTask.dueDate}
-              onChange={(e) =>
-                setNewTask({ ...newTask, dueDate: e.target.value })
-              }
-            />
+              <div>
+                <label className="font-semibold">Estado</label>
+                <select
+                  className="border p-3 rounded-xl w-full mt-1"
+                  value={newTask.status}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, status: e.target.value })
+                  }
+                >
+                  <option value="PENDING">Pendiente</option>
+                  <option value="IN_PROGRESS">En progreso</option>
+                  <option value="DONE">Finalizada</option>
+                </select>
+              </div>
+            </div>
 
-            <div className="flex gap-4 justify-end">
+            <div className="flex justify-end mt-8 gap-4">
               <button
-                onClick={() => setShowNewTaskModal(false)}
-                className="bg-gray-500 text-white px-4 py-2 rounded-xl"
+                onClick={closeTaskModal}
+                className="px-5 py-3 bg-gray-500 text-white rounded-xl"
               >
                 Cancelar
               </button>
 
               <button
-                onClick={handleAddTask}
-                className="bg-green-600 text-white px-4 py-2 rounded-xl"
+                onClick={handleCreateTask}
+                className="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600"
               >
-                Crear
+                Crear Tarea
               </button>
             </div>
           </div>

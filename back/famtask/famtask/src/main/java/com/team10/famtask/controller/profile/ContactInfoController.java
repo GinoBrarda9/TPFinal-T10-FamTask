@@ -21,10 +21,13 @@ public class ContactInfoController {
     private final JwtService jwtService;
 
     @GetMapping
-    public ResponseEntity<ContactInfoDTO> get(@RequestHeader("Authorization") String authHeader) {
-        String email = jwtService.extractUsername(authHeader.replace("Bearer ", ""));
-        return ResponseEntity.ok(service.get(email));
+    public ResponseEntity<ContactInfoDTO> get() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String dni = (String) auth.getPrincipal();  // el jwtFilter setea el dni
+
+        return ResponseEntity.ok(service.get(dni));
     }
+
 
     @PostMapping
     public ResponseEntity<ContactInfoDTO> createOrUpdate(@RequestBody ContactInfo data) {

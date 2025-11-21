@@ -6,7 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import GoogleSuccess from "./components/GoogleSuccess";
-
+import FinancePage from "./components/FinancePage";
 import LoginForm from "./components/LoginForm";
 import SignupForm from "./components/SignupForm";
 import HomePage from "./components/HomePage";
@@ -47,7 +47,7 @@ function App() {
               )
             }
           />
-
+          <Route path="/finances" element={<FinancePage />} />
           {/* Página principal después del login - PROTEGIDA */}
           <Route
             path="/home"
