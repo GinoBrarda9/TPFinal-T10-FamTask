@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="770a5786-df1d-49f4-998d-789eaae77e3b" name="Changes" comment="feat:[SCRUM-40] APIs de calendar">
+      <change afterPath="$PROJECT_DIR$/.idea/TPFinal-T10-FamTask.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/google/service/GoogleCalendarService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jarRepositories.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/entity/family/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/entity/family/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/event/service/EventService.java" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/event/service/EventService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/event/service/GoogleCalendarService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/repository/family/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/src/main/java/com/team10/famtask/repository/family/UserRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/famtask/famtask/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/back/famtask/famtask/src/main/resources/application.properties" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Interface" />
+        <option value="Record" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="develop" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Anareynab&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/GinoBrarda9/TPFinal-T10-FamTask.git",
+    "accountId": "099f8857-b739-40df-a844-688fb0241bc2"
+  },
+  "recentNewPullRequestHead": {
+    "server": {
+      "useHttp": false,
+      "host": "github.com",
+      "port": null,
+      "suffix": null
+    },
+    "owner": "GinoBrarda9",
+    "repository": "TPFinal-T10-FamTask"
+  }
+}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="345Tjuhq7jm0Z1xfTU642NYrDia" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "JUnit.InvitationControllerTest.executor": "Run",
+    "Maven.famtask [install].executor": "Run",
+    "Maven.famtask [test].executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "sprint__4",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/anare/OneDrive/Desktop/TPFinal-T10-FamTask/back/famtask/famtask/src/main/java/com/team10/famtask/controller/profile",
+    "settings.editor.selected.configurable": "preferences.pluginManager"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\anare\OneDrive\Desktop\TPFinal-T10-FamTask\back\famtask\famtask\src\main\java\com\team10\famtask\controller\profile" />
+    </key>
+    <key name="MoveClassesOrPackagesDialog.RECENTS_KEY">
+      <recent name="com.team10.famtask.util" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="InvitationControllerTest" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+      <module name="famtask" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.team10.famtask.controller.profile.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <option name="PACKAGE_NAME" value="com.team10.famtask.controller" />
+      <option name="MAIN_CLASS_NAME" value="com.team10.famtask.controller.InvitationControllerTest" />
+      <option name="TEST_OBJECT" value="class" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JUnit.InvitationControllerTest" />
+        <item itemvalue="JUnit.InvitationControllerTest" />
+        <item itemvalue="JUnit.InvitationControllerTest" />
+        <item itemvalue="JUnit.InvitationControllerTest" />
+        <item itemvalue="JUnit.InvitationControllerTest" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="770a5786-df1d-49f4-998d-789eaae77e3b" name="Changes" comment="" />
+      <created>1760502572448</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1760502572448</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Gestion Familiar Creada">
+      <option name="closed" value="true" />
+      <created>1760503002139</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1760503002139</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Gestion Familiar Creada">
+      <option name="closed" value="true" />
+      <created>1760503031391</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1760503031391</updated>
+    </task>
+    <task id="LOCAL-00003" summary="feat:[SCRUM-25] Creacion Homepage, fix test invitation">
+      <option name="closed" value="true" />
+      <created>1760925415942</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1760925415942</updated>
+    </task>
+    <task id="LOCAL-00004" summary="feat:[SCRUM-25] fix create family test">
+      <option name="closed" value="true" />
+      <created>1761570516637</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1761570516637</updated>
+    </task>
+    <task id="LOCAL-00005" summary="feat:[SCRUM-25] creacion del homepage">
+      <option name="closed" value="true" />
+      <created>1761601094948</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1761601094948</updated>
+    </task>
+    <task id="LOCAL-00006" summary="feat:[SCRUM-25] creacion de paquete evento">
+      <option name="closed" value="true" />
+      <created>1761699416252</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1761699416252</updated>
+    </task>
+    <task id="LOCAL-00007" summary="feat:[SCRUM-25] fix de get user evento">
+      <option name="closed" value="true" />
+      <created>1761705050056</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1761705050056</updated>
+    </task>
+    <task id="LOCAL-00008" summary="feat:[SCRUM-34] integracion con WhatsApp API">
+      <option name="closed" value="true" />
+      <created>1761767422638</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1761767422638</updated>
+    </task>
+    <task id="LOCAL-00009" summary="feat:[SCRUM-40] APIs de calendar">
+      <option name="closed" value="true" />
+      <created>1762202630156</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1762202630156</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Gestion Familiar Creada" />
+    <MESSAGE value="feat:[SCRUM-25] Creacion Homepage, fix test invitation" />
+    <MESSAGE value="feat:[SCRUM-25] fix create family test" />
+    <MESSAGE value="feat:[SCRUM-25] creacion del homepage" />
+    <MESSAGE value="feat:[SCRUM-25] creacion de paquete evento" />
+    <MESSAGE value="feat:[SCRUM-25] fix de get user evento" />
+    <MESSAGE value="feat:[SCRUM-34] integracion con WhatsApp API" />
+    <MESSAGE value="feat:[SCRUM-40] APIs de calendar" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat:[SCRUM-40] APIs de calendar" />
+  </component>
+</project>

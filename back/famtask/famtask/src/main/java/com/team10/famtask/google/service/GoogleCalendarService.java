@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Map;
 
@@ -29,15 +30,7 @@ public class GoogleCalendarService {
      */
     public void syncEvent(Event ev) {
         try {
-            // Validaciones básicas
-            if (ev == null) {
-                log.warn("⚠️ No se puede sincronizar un evento nulo.");
-                return;
-            }
-            if (ev.getCreatedBy() == null) {
-                log.warn("⚠️ El evento no tiene usuario creador, se omite sincronización con Google Calendar.");
-                return;
-            }
+            if (ev == null || ev.getCreatedBy() == null) return;
 
             var service = googleClient.serviceForUser(ev.getCreatedBy());
 
@@ -46,91 +39,99 @@ public class GoogleCalendarService {
                     .setDescription(ev.getDescription())
                     .setLocation(ev.getLocation());
 
-            // Fechas de inicio y fin
+            ZoneId zone = ZoneId.of(TIMEZONE);
+
+            // ==== FECHA INICIO ====
             if (ev.getStartTime() != null) {
-                gEvent.setStart(new EventDateTime().setDateTime(
-                        new DateTime(Date.from(ev.getStartTime()
-                                .atZone(ZoneId.of(TIMEZONE))
-                                .toInstant()))
-                ).setTimeZone(TIMEZONE));
+                ZonedDateTime start = ev.getStartTime().atZone(zone);
+
+                gEvent.setStart(
+                        new EventDateTime()
+                                .setDateTime(new DateTime(start.toInstant().toEpochMilli()))
+                                .setTimeZone(TIMEZONE)
+                );
             }
 
+            // ==== FECHA FIN ====
             if (ev.getEndTime() != null) {
-                gEvent.setEnd(new EventDateTime().setDateTime(
-                        new DateTime(Date.from(ev.getEndTime()
-                                .atZone(ZoneId.of(TIMEZONE))
-                                .toInstant()))
-                ).setTimeZone(TIMEZONE));
+                ZonedDateTime end = ev.getEndTime().atZone(zone);
+
+                gEvent.setEnd(
+                        new EventDateTime()
+                                .setDateTime(new DateTime(end.toInstant().toEpochMilli()))
+                                .setTimeZone(TIMEZONE)
+                );
             }
 
-            // Insertar en el calendario principal del usuario
             var created = service.events().insert("primary", gEvent).execute();
             ev.setGoogleEventId(created.getId());
 
-            log.info("✅ Evento creado y sincronizado con Google Calendar. ID={}", created.getId());
+            log.info("✅ Evento sincronizado con Google Calendar. ID={}", created.getId());
 
         } catch (IllegalStateException e) {
             if ("GOOGLE_TOKEN_REVOKED".equals(e.getMessage())) {
-                log.warn("⚠️ El usuario debe volver a vincular Google (refresh token revocado). Se omite sync.");
+                log.warn("⚠️ El usuario debe volver a vincular Google.");
             } else {
-                log.error("❌ Error de estado al sincronizar evento con Google Calendar", e);
+                log.error("❌ Error de estado al sincronizar Calendar", e);
             }
         } catch (Exception ex) {
-            log.error("❌ Error sincronizando evento con Google Calendar", ex);
+            log.error("❌ Error sincronizando Calendar", ex);
         }
     }
+
 
     /**
      * ✅ Actualizar evento existente en Google Calendar
      */
     public void updateEvent(Event ev) {
         try {
-            if (ev == null) {
-                log.warn("⚠️ No se puede actualizar un evento nulo.");
-                return;
-            }
-
-            if (ev.getCreatedBy() == null) {
-                log.warn("⚠️ El evento no tiene usuario creador, no se puede actualizar en Calendar.");
-                return;
-            }
+            if (ev == null || ev.getCreatedBy() == null) return;
 
             var service = googleClient.serviceForUser(ev.getCreatedBy());
 
-            // Si no tiene GoogleEventId, crearlo nuevo
             if (ev.getGoogleEventId() == null) {
-                log.info("ℹ️ Evento sin ID de Google, creando uno nuevo...");
                 syncEvent(ev);
                 return;
             }
 
-            // Obtener el evento existente de Google
             var gEvent = service.events().get("primary", ev.getGoogleEventId()).execute();
 
-            // Actualizar campos básicos
             gEvent.setSummary(ev.getTitle())
                     .setDescription(ev.getDescription())
                     .setLocation(ev.getLocation());
 
-            // Actualizar fechas
-            if (ev.getStartTime() != null && ev.getEndTime() != null) {
-                var zone = ZoneId.of(TIMEZONE);
-                var start = new DateTime(ev.getStartTime().atZone(zone).toInstant().toEpochMilli());
-                var end = new DateTime(ev.getEndTime().atZone(zone).toInstant().toEpochMilli());
+            ZoneId zone = ZoneId.of(TIMEZONE);
 
-                gEvent.setStart(new EventDateTime().setDateTime(start).setTimeZone(zone.toString()));
-                gEvent.setEnd(new EventDateTime().setDateTime(end).setTimeZone(zone.toString()));
+            // ==== START ====
+            if (ev.getStartTime() != null) {
+                ZonedDateTime start = ev.getStartTime().atZone(zone);
+                gEvent.setStart(
+                        new EventDateTime()
+                                .setDateTime(new DateTime(start.toInstant().toEpochMilli()))
+                                .setTimeZone(TIMEZONE)
+                );
             }
 
-            // Ejecutar actualización
-            service.events().update("primary", ev.getGoogleEventId(), gEvent).execute();
+            // ==== END ====
+            if (ev.getEndTime() != null) {
+                ZonedDateTime end = ev.getEndTime().atZone(zone);
+                gEvent.setEnd(
+                        new EventDateTime()
+                                .setDateTime(new DateTime(end.toInstant().toEpochMilli()))
+                                .setTimeZone(TIMEZONE)
+                );
+            }
 
-            log.info("✅ Evento actualizado correctamente en Google Calendar (ID={})", ev.getGoogleEventId());
+            service.events().update("primary", ev.getGoogleEventId(), gEvent).execute();
+            log.info("✅ Evento actualizado en Google Calendar.");
 
         } catch (Exception ex) {
-            log.error("❌ Error actualizando evento en Google Calendar", ex);
+            log.error("❌ Error actualizando evento en Calendar", ex);
         }
     }
+
+
+
     public Map<String, Object> getCalendarLinkStatus(String dni) {
         User user = userRepository.findByDni(dni)
 

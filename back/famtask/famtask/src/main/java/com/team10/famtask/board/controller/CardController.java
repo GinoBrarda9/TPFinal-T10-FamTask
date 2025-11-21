@@ -97,6 +97,36 @@ public class CardController {
         return ResponseEntity.ok(toDTO(card));
     }
 
+    // ===============================================================
+// MOVE WITHIN SAME COLUMN
+// ===============================================================
+    @PatchMapping("/{cardId}/reorder")
+    public ResponseEntity<CardResponseDTO> reorder(
+            @PathVariable Long cardId,
+            @RequestBody Map<String, Integer> body) {
+
+        int newPosition = body.getOrDefault("newPosition", 0);
+
+        Card card = cardService.moveCard(cardId, newPosition);
+
+        return ResponseEntity.ok(toDTO(card));
+    }
+
+    // ===============================================================
+// MOVE TO ANOTHER COLUMN
+// ===============================================================
+    @PatchMapping("/{cardId}/move-to-column")
+    public ResponseEntity<CardResponseDTO> moveToColumn(
+            @PathVariable Long cardId,
+            @RequestBody Map<String, Object> body) {
+
+        Long newColumnId = Long.valueOf(body.get("newColumnId").toString());
+        int newPosition = Integer.parseInt(body.get("newPosition").toString());
+
+        Card card = cardService.moveCardToColumn(cardId, newColumnId, newPosition);
+
+        return ResponseEntity.ok(toDTO(card));
+    }
 
     private CardResponseDTO toDTO(Card c) {
         return CardResponseDTO.builder()

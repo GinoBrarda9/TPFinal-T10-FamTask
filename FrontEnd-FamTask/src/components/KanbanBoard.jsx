@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function KanbanBoard() {
+  const navigate = useNavigate();
+
   const [columns, setColumns] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [boardId, setBoardId] = useState(null);
 
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState(null);
@@ -15,131 +19,179 @@ export default function KanbanBoard() {
     description: "",
     assignedUserDni: "",
     dueDate: "",
-    status: "PENDING", // mapea a tu CardStatus
   });
 
   const token = localStorage.getItem("token");
 
-  const getDniFromToken = () => {
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.dni;
+  // ---------------------------
+  // Helpers
+  // ---------------------------
+  const apiFetch = async (url, options = {}) => {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+
+    if (!res.ok) {
+      const msg = (await res.text().catch(() => "")) || res.statusText;
+      throw new Error(msg);
+    }
+
+    const type = res.headers.get("content-type") || "";
+    if (!type.includes("application/json")) return null;
+    return res.json();
   };
 
-  // -------------------------------------------------------------------------
-  // LOAD BOARD + FAMILY MEMBERS
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    loadBoard();
-    loadFamilyMembers();
-  }, []);
-
-  const loadFamilyMembers = async () => {
+  const getDniFromToken = () => {
+    if (!token) return null;
     try {
-      const resp = await fetch("http://localhost:8080/api/homepage", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await resp.json();
-      setFamilyMembers(data.members || []);
-    } catch (e) {
-      console.error("Error cargando miembros:", e);
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.dni || payload.sub || null;
+    } catch {
+      return null;
     }
   };
 
+  const memberNameByDni = useMemo(() => {
+    const m = {};
+    familyMembers.forEach((fm) => (m[fm.dni] = fm.name));
+    return m;
+  }, [familyMembers]);
+
+  // ---------------------------
+  // Load family members
+  // ---------------------------
+  const loadFamilyMembers = async () => {
+    try {
+      const data = await apiFetch("http://localhost:8080/api/homepage");
+      setFamilyMembers(data?.members || []);
+    } catch (e) {
+      console.warn("No se pudieron cargar miembros:", e);
+    }
+  };
+
+  // ---------------------------
+  // Load board + columns + cards
+  // ---------------------------
   const loadBoard = async () => {
+    setLoading(true);
+    setErrorMsg("");
+
     try {
       const dni = getDniFromToken();
+      if (!dni) {
+        setErrorMsg("Tu sesión expiró. Iniciá sesión nuevamente.");
+        return;
+      }
 
-      // Perfil del usuario → familyId
-      const profRes = await fetch(
-        `http://localhost:8080/api/users/${dni}/profile`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      const profile = await apiFetch(
+        `http://localhost:8080/api/users/${dni}/profile`
       );
-
-      const profile = await profRes.json();
       const familyId = profile.familyId;
+      if (!familyId) {
+        setErrorMsg("No se encontró la familia del usuario.");
+        return;
+      }
 
-      // Board de esa familia
-      const boardRes = await fetch(
-        `http://localhost:8080/api/board/family/${familyId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const board = await apiFetch(
+        `http://localhost:8080/api/board/family/${familyId}`
+      );
+      const bId = board.boardId || board.id;
+      setBoardId(bId);
+
+      const columnsData = await apiFetch(
+        `http://localhost:8080/api/board/${bId}/columns`
       );
 
-      const board = await boardRes.json();
-      setBoardId(board.boardId);
+      const columnsWithCards = await Promise.all(
+        columnsData.map(async (col) => {
+          try {
+            const cards = await apiFetch(
+              `http://localhost:8080/api/cards/column/${col.id}`
+            );
 
-      // Columnas
-      const colsRes = await fetch(
-        `http://localhost:8080/api/board/${board.boardId}/columns`,
-        { headers: { Authorization: `Bearer ${token}` } }
+            return {
+              ...col,
+              cards: (cards || []).sort((a, b) => a.position - b.position),
+            };
+          } catch {
+            return { ...col, cards: [] };
+          }
+        })
       );
 
-      const columnsData = await colsRes.json();
-      setColumns(columnsData || []);
+      setColumns(
+        columnsWithCards.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      );
     } catch (err) {
-      console.error("Error cargando tablero:", err);
+      console.error(err);
+      setErrorMsg("No se pudo cargar el tablero.");
     } finally {
       setLoading(false);
     }
   };
 
-  // -------------------------------------------------------------------------
-  // CREATE TASK
-  // -------------------------------------------------------------------------
+  useEffect(() => {
+    loadBoard();
+    loadFamilyMembers();
+  }, []);
+
+  // ---------------------------
+  // Create task
+  // ---------------------------
   const handleCreateTask = async () => {
     if (!newTask.title.trim()) return alert("El título es obligatorio");
-    if (!newTask.assignedUserDni) return alert("Seleccioná un usuario");
 
     try {
-      const res = await fetch(
+      const body = {
+        title: newTask.title.trim(),
+        description: newTask.description.trim(),
+        assignedUserDni: newTask.assignedUserDni || null,
+        dueDate: newTask.dueDate || null,
+      };
+
+      const created = await apiFetch(
         `http://localhost:8080/api/cards/column/${selectedColumnId}`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newTask),
+          body: JSON.stringify(body),
         }
       );
-      console.log("Creando card en columna:", selectedColumnId);
 
-      if (!res.ok) throw new Error("Error creando tarea");
-
-      const created = await res.json();
-
-      // Agregarla a la UI
-      setColumns(
-        columns.map((c) =>
+      // update UI
+      setColumns((prev) =>
+        prev.map((c) =>
           c.id === selectedColumnId
-            ? { ...c, cards: [...(c.cards || []), created] }
+            ? { ...c, cards: [...c.cards, created] }
             : c
         )
       );
 
       closeTaskModal();
-    } catch (e) {
-      console.error("Error creando card:", e);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo crear la tarea");
     }
   };
 
   const closeTaskModal = () => {
     setShowTaskModal(false);
+    setSelectedColumnId(null);
     setNewTask({
       title: "",
       description: "",
       assignedUserDni: "",
       dueDate: "",
-      status: "PENDING",
     });
   };
 
-  // -------------------------------------------------------------------------
-  // DRAG & DROP
-  // -------------------------------------------------------------------------
+  // ---------------------------
+  // Drag & Drop
+  // ---------------------------
   const [draggedCard, setDraggedCard] = useState(null);
 
   const handleDragStart = (card, colId) => {
@@ -148,38 +200,32 @@ export default function KanbanBoard() {
 
   const handleDrop = async (e, newColumnId) => {
     e.preventDefault();
-
     if (!draggedCard) return;
+
     const { card, fromColumnId } = draggedCard;
 
+    const newPosition =
+      columns.find((c) => c.id === newColumnId)?.cards?.length ?? 0;
+
     try {
-      await fetch(`http://localhost:8080/api/cards/${card.id}/move`, {
+      await apiFetch(`http://localhost:8080/api/cards/${card.id}/move`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
-          newColumnId: newColumnId,
-          newPosition: 0,
+          newColumnId,
+          newPosition,
         }),
       });
 
-      // Actualizar UI
-      setColumns(
-        columns.map((col) => {
-          // quitar de columna anterior
+      // update UI
+      setColumns((prev) =>
+        prev.map((col) => {
           if (col.id === fromColumnId) {
-            return {
-              ...col,
-              cards: col.cards.filter((c) => c.id !== card.id),
-            };
+            return { ...col, cards: col.cards.filter((c) => c.id !== card.id) };
           }
-          // agregar a columna nueva
           if (col.id === newColumnId) {
             return {
               ...col,
-              cards: [...(col.cards || []), card],
+              cards: [...col.cards, { ...card, columnId: newColumnId }],
             };
           }
           return col;
@@ -187,39 +233,40 @@ export default function KanbanBoard() {
       );
     } catch (err) {
       console.error("Error moviendo card:", err);
+      alert("Error moviendo la tarea");
     }
 
     setDraggedCard(null);
   };
 
-  // -------------------------------------------------------------------------
+  // ---------------------------
   // UI
-  // -------------------------------------------------------------------------
+  // ---------------------------
+  if (loading)
+    return <div className="p-6 text-gray-500">Cargando tablero...</div>;
 
-  if (loading) {
+  if (errorMsg)
     return (
-      <div className="flex justify-center p-10 text-gray-500">
-        Cargando tablero...
+      <div className="p-6">
+        <p className="text-red-500">{errorMsg}</p>
       </div>
     );
-  }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-4 text-gray-800">
-        Tablero de Tareas
-      </h1>
+    <div className="p-6 min-h-screen bg-gray-50">
+      <h1 className="text-3xl font-bold mb-4">Kanban Familiar</h1>
 
+      {/* COLUMNS */}
       <div className="flex gap-6 overflow-x-auto pb-4">
         {columns.map((col) => (
           <div
             key={col.id}
-            className="w-80 flex-shrink-0 bg-white rounded-2xl shadow border"
+            className="w-80 bg-white rounded-2xl shadow border flex-shrink-0"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, col.id)}
           >
             <div
-              className="p-4 rounded-t-2xl text-white font-semibold"
+              className="p-4 text-white font-semibold rounded-t-2xl"
               style={{ background: col.color || "#FFB020" }}
             >
               {col.name}
@@ -229,7 +276,7 @@ export default function KanbanBoard() {
               {(col.cards || []).map((card) => (
                 <div
                   key={card.id}
-                  className="bg-gray-50 p-4 rounded-xl border cursor-move"
+                  className="bg-gray-50 border p-4 rounded-xl cursor-move"
                   draggable
                   onDragStart={() => handleDragStart(card, col.id)}
                 >
@@ -237,19 +284,17 @@ export default function KanbanBoard() {
                   {card.description && (
                     <p className="text-sm mt-1">{card.description}</p>
                   )}
-
-                  <div className="text-xs text-gray-500 mt-2">
-                    {card.dueDate && (
-                      <div>
-                        📅 {new Date(card.dueDate).toLocaleDateString("es-AR")}
-                      </div>
-                    )}
-                  </div>
+                  {card.dueDate && (
+                    <p className="text-xs mt-2 text-gray-500">
+                      📅{" "}
+                      {new Date(card.dueDate).toLocaleDateString("es-AR")}
+                    </p>
+                  )}
                 </div>
               ))}
 
               <button
-                className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600 hover:border-amber-600"
+                className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600"
                 onClick={() => {
                   setSelectedColumnId(col.id);
                   setShowTaskModal(true);
@@ -262,114 +307,58 @@ export default function KanbanBoard() {
         ))}
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* MODAL NUEVA TAREA */}
-      {/* ------------------------------------------------------------------ */}
+      {/* MODAL */}
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4 z-50">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Nueva Tarea</h2>
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4">
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
+            <h2 className="text-xl font-bold mb-4">Nueva Tarea</h2>
+
+            <input
+              type="text"
+              className="border p-2 rounded-lg w-full mb-3"
+              placeholder="Título"
+              value={newTask.title}
+              onChange={(e) =>
+                setNewTask({ ...newTask, title: e.target.value })
+              }
+            />
+
+            <textarea
+              className="border p-2 rounded-lg w-full mb-3"
+              placeholder="Descripción"
+              value={newTask.description}
+              onChange={(e) =>
+                setNewTask({ ...newTask, description: e.target.value })
+              }
+            />
+
+            <input
+              type="date"
+              className="border p-2 rounded-lg w-full mb-3"
+              value={newTask.dueDate.slice(0, 10)}
+              onChange={(e) =>
+                setNewTask({
+                  ...newTask,
+                  dueDate: e.target.value
+                    ? `${e.target.value}T00:00:00`
+                    : "",
+                })
+              }
+            />
+
+            <div className="flex justify-end gap-4 mt-4">
               <button
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg"
                 onClick={closeTaskModal}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="font-semibold">Título</label>
-                <input
-                  type="text"
-                  className="border p-3 rounded-xl w-full mt-1"
-                  value={newTask.title}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, title: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="font-semibold">Descripción</label>
-                <textarea
-                  rows={3}
-                  className="border p-3 rounded-xl w-full mt-1"
-                  value={newTask.description}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, description: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold">Asignar a</label>
-                <select
-                  className="border p-3 rounded-xl w-full mt-1"
-                  value={newTask.assignedUserDni}
-                  onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
-                      assignedUserDni: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Seleccionar</option>
-                  {familyMembers.map((m) => (
-                    <option key={m.dni} value={m.dni}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="font-semibold">Fecha límite</label>
-                <input
-                  type="date"
-                  className="border p-3 rounded-xl w-full mt-1"
-                  value={newTask.dueDate}
-                  onChange={(e) =>
-                    setNewTask({
-                      ...newTask,
-                      dueDate: e.target.value
-                        ? `${e.target.value}T00:00:00`
-                        : null,
-                    })
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold">Estado</label>
-                <select
-                  className="border p-3 rounded-xl w-full mt-1"
-                  value={newTask.status}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, status: e.target.value })
-                  }
-                >
-                  <option value="PENDING">Pendiente</option>
-                  <option value="IN_PROGRESS">En progreso</option>
-                  <option value="DONE">Finalizada</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-8 gap-4">
-              <button
-                onClick={closeTaskModal}
-                className="px-5 py-3 bg-gray-500 text-white rounded-xl"
               >
                 Cancelar
               </button>
 
               <button
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg"
                 onClick={handleCreateTask}
-                className="px-6 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600"
               >
-                Crear Tarea
+                Crear
               </button>
             </div>
           </div>

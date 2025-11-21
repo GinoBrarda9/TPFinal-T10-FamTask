@@ -132,76 +132,72 @@ export default function HomePage() {
     }
   };
 
-  const handleCreateOrUpdateEvent = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("No hay sesión activa");
-      return;
-    }
+ const handleCreateOrUpdateEvent = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    alert("No hay sesión activa");
+    return;
+  }
 
-    if (!eventForm.title.trim()) {
-      alert("El título es obligatorio");
-      return;
-    }
+  if (!eventForm.title.trim()) {
+    alert("El título es obligatorio");
+    return;
+  }
 
-    if (!eventForm.startTime || !eventForm.endTime) {
-      alert("Las fechas de inicio y fin son obligatorias");
-      return;
-    }
+  if (!eventForm.startTime || !eventForm.endTime) {
+    alert("Las fechas de inicio y fin son obligatorias");
+    return;
+  }
 
-    // Validar que si es evento familiar, el usuario sea ADMIN
-    if (eventForm.familyId && userRole !== "ADMIN") {
-      alert("Solo los administradores pueden crear eventos familiares");
-      return;
-    }
+  // Validar que si es evento familiar, el usuario sea ADMIN
+  if (eventForm.familyId && userRole !== "ADMIN") {
+    alert("Solo los administradores pueden crear eventos familiares");
+    return;
+  }
 
-    // Preparar datos - asegurar que los campos estén correctos
-    const eventData = {
-      title: eventForm.title.trim(),
-      description: eventForm.description?.trim() || "",
-      startTime: eventForm.startTime,
-      endTime: eventForm.endTime,
-      color: eventForm.color || "#FF5733",
-      location: eventForm.location?.trim() || "",
-      allDay: eventForm.allDay || false,
-      familyId: eventForm.familyId || null,
-      memberDni: eventForm.familyId ? null : userDni,
-    };
-
-    try {
-      const url = editingEvent
-        ? `http://localhost:8080/api/events/${editingEvent.id}`
-        : "http://localhost:8080/api/events";
-
-      const method = editingEvent ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(eventData),
-      });
-
-      if (response.ok) {
-        alert(
-          editingEvent
-            ? "¡Evento actualizado exitosamente!"
-            : "¡Evento creado exitosamente!"
-        );
-        setShowEventModal(false);
-        resetEventForm();
-        fetchEvents();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        alert(`Error: ${errorData.message || "Error desconocido"}`);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error de conexión con el servidor");
-    }
+  const eventData = {
+    title: eventForm.title.trim(),
+    description: eventForm.description?.trim() || "",
+    startTime: eventForm.startTime,
+    endTime: eventForm.endTime,
+    color: eventForm.color || "#FF5733",
+    location: eventForm.location?.trim() || "",
+    allDay: eventForm.allDay || false,
+    familyId: eventForm.familyId || null,
+    memberDni: eventForm.familyId ? null : userDni,
   };
+
+  try {
+    const url = editingEvent
+      ? `http://localhost:8080/api/events/${editingEvent.id}`
+      : "http://localhost:8080/api/events";
+
+    const method = editingEvent ? "PATCH" : "POST"; // ✅ ARREGLADO
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(eventData),
+    });
+
+    if (response.ok) {
+      alert(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
+      setShowEventModal(false);
+      resetEventForm();
+      fetchEvents();
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      alert(`Error: ${errorData.message || "Error desconocido"}`);
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    alert("Error de conexión con el servidor");
+  }
+};
+
 
   const handleDeleteEvent = async (eventId) => {
     if (!confirm("¿Estás seguro de eliminar este evento?")) return;

@@ -12,31 +12,52 @@ import java.util.List;
 
 public interface EventRepository extends JpaRepository<Event, Long> {
 
-    // ✅ Eventos familiares (visibles por todos los miembros de la familia)
-    // Mantiene el mismo nombre
+    // ============================================================
+    // 🔥 NUEVOS: obtener TODOS los eventos familiares (incluye finalizados)
+    // ============================================================
+    List<Event> findByFamily(Family family);
+
+    List<Event> findByFamily_Id(Long familyId);
+
+    // 🔥 Nuevos: obtener TODOS los eventos personales (incluye finalizados)
+    List<Event> findByAssignedTo(FamilyMember member);
+
+    List<Event> findByAssignedTo_User_Dni(String dni);
+
+
+    // ============================================================
+    // ⚠️ ANTIGUOS (SE SIGUEN USANDO EN SCHEDULERS / RECORDATORIOS)
+    // NO HAY QUE BORRARLOS
+    // ============================================================
+
+    // Eventos familiares activos
     List<Event> findByFamilyAndFinishedFalse(Family family);
 
-    // ✅ Alternativa interna segura por ID (opcional, por si la usás en el service)
     List<Event> findByFamily_IdAndFinishedFalse(Long familyId);
 
-    // ✅ Eventos personales (solo del usuario actual)
+    // Eventos personales activos
     List<Event> findByAssignedToAndFinishedFalse(FamilyMember member);
 
-    // ✅ Recordatorios de día antes
+    List<Event> findByAssignedTo_User_DniAndFinishedFalse(String dni);
+
+    // Recordatorios día antes
     List<Event> findAllByStartTimeBetweenAndReminderDayBeforeSentFalse(LocalDateTime start, LocalDateTime end);
 
-    // ✅ Recordatorios de hora antes
+    // Recordatorios hora antes
     List<Event> findAllByStartTimeBetweenAndReminderHourBeforeSentFalse(LocalDateTime start, LocalDateTime end);
 
-    // ✅ Recordatorios dentro de una franja de tiempo (scheduler)
+    // Recordatorios dentro de un rango
     List<Event> findAllByStartTimeGreaterThanEqualAndStartTimeLessThanAndReminderHourBeforeSentFalse(
             LocalDateTime startInclusive, LocalDateTime endExclusive
     );
 
-    // ✅ Eventos que ya finalizaron (para marcar como terminados)
+    // Eventos para finalizar automáticamente
     List<Event> findByEndTimeBeforeAndFinishedFalse(LocalDateTime now);
 
-    // ✅ Eventos próximos (familiares o personales) — para calendario o dashboard
+
+    // ============================================================
+    // Vista para dashboard/calendario — filtra ACTIVE solo porque es para vista
+    // ============================================================
     @Query("""
         select distinct e
         from Event e
@@ -56,7 +77,4 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
-
-    // ✅ Eventos personales por DNI (para evitar usar FamilyMember directamente)
-    List<Event> findByAssignedTo_User_DniAndFinishedFalse(String dni);
 }

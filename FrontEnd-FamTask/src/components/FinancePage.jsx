@@ -1,162 +1,209 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import BalanceCard from "./BalanceCard";
+import TransactionForm from "./TransactionForm";
+import TransactionList from "./TransactionList";
+import EditModal from "./EditModal";
+import StatsCharts from "./StatsCharts";
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState([]);
-  const [newTx, setNewTx] = useState({
-    type: "income",
-    amount: "",
-    description: "",
-    category: "",
-  });
+  const [balance, setBalance] = useState(0);
 
-  const categories = {
-    income: ["Sueldo", "Venta", "Ahorros", "Devolución"],
-    expense: ["Supermercado", "Servicios", "Transporte", "Salud", "Otros"],
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Filters
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterCategory, setFilterCategory] = useState("ALL");
+  const [filterMonth, setFilterMonth] = useState("ALL");
+
+  // TOKEN
+  const token = localStorage.getItem("token");
+
+  // Navegación
+  const navigate = useNavigate();
+
+  // ========================
+  // LOAD ON MOUNT
+  // ========================
+  const loadFinanceData = async () => {
+    try {
+      // MOVIMIENTOS
+      const res1 = await fetch("http://localhost:8080/api/finance/movements", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res1.ok) {
+        console.error("Error movimientos:", res1.status);
+        return;
+      }
+
+      const movs = await res1.json();
+      setTransactions(movs);
+
+      // BALANCE
+      const res2 = await fetch("http://localhost:8080/api/finance/balance", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res2.ok) {
+        console.error("Error balance:", res2.status);
+        return;
+      }
+
+      const bal = await res2.json();
+      setBalance(bal);
+
+    } catch (error) {
+      console.error("Error cargando Finanzas:", error);
+    }
   };
 
-  const balance = transactions.reduce((acc, tx) => {
-    return tx.type === "income" ? acc + tx.amount : acc - tx.amount;
-  }, 0);
+  useEffect(() => {
+    loadFinanceData();
+  }, []);
 
-  const addTransaction = () => {
-    if (!newTx.amount || !newTx.description) {
-      alert("Completá todos los datos");
-      return;
+  // ========================
+  // FILTERS
+  // ========================
+  const filteredTransactions = transactions.filter((tx) => {
+    if (filterType !== "ALL" && tx.type !== filterType) return false;
+    if (filterCategory !== "ALL" && tx.category !== filterCategory) return false;
+
+    if (filterMonth !== "ALL") {
+      const txMonth = new Date(tx.createdAt).getMonth() + 1;
+      return txMonth === Number(filterMonth);
     }
 
-    setTransactions([
-      ...transactions,
-      { ...newTx, id: Date.now(), amount: Number(newTx.amount) },
-    ]);
+    return true;
+  });
 
-    setNewTx({ type: "income", amount: "", description: "", category: "" });
+  // ========================
+  // DELETE
+  // ========================
+  const deleteTx = async (id) => {
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/finance/movement/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Error al eliminar:", res.status);
+        return;
+      }
+
+      loadFinanceData();
+
+    } catch (error) {
+      console.error("Error al eliminar movimiento:", error);
+    }
   };
 
-  const deleteTx = (id) => {
-    setTransactions(transactions.filter((tx) => tx.id !== id));
+  // ========================
+  // OPEN EDIT MODAL
+  // ========================
+  const openEdit = (tx) => {
+    setSelectedTx(tx);
+    setShowEditModal(true);
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
+
+      {/* FLECHA VOLVER */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-amber-600 hover:text-amber-800 mb-4"
+      >
+        <span className="text-2xl">←</span>
+        <span className="font-medium">Volver</span>
+      </button>
+
       <h1 className="text-3xl font-bold text-amber-600 mb-6">
         Finanzas Familiares 💰
       </h1>
 
-      {/* CARD DE BALANCE */}
-      <div className="bg-white shadow-md rounded-xl p-6 mb-6 border border-amber-200">
-        <h2 className="text-xl font-semibold mb-2 text-gray-700">
-          Balance actual
-        </h2>
-        <p
-          className={`text-3xl font-bold ${
-            balance >= 0 ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          ${balance.toLocaleString("es-AR")}
-        </p>
-      </div>
+      <BalanceCard balance={balance} />
 
       {/* FORM */}
-      <div className="bg-white shadow-md rounded-xl p-6 mb-6 border border-amber-200">
-        <h3 className="text-lg font-semibold mb-4">Agregar movimiento</h3>
+      <TransactionForm refresh={loadFinanceData} />
 
-        <div className="flex gap-4 mb-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="type"
-              checked={newTx.type === "income"}
-              onChange={() => setNewTx({ ...newTx, type: "income" })}
-            />
-            Ingreso
-          </label>
+      {/* FILTERS */}
+      <div className="bg-white shadow-md rounded-xl p-4 border mb-6">
+        <h3 className="text-lg font-semibold">Filtros</h3>
 
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="type"
-              checked={newTx.type === "expense"}
-              onChange={() => setNewTx({ ...newTx, type: "expense" })}
-            />
-            Gasto
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input
-            type="number"
-            placeholder="Monto"
-            className="border p-2 rounded-lg"
-            value={newTx.amount}
-            onChange={(e) => setNewTx({ ...newTx, amount: e.target.value })}
-          />
-
-          <input
-            type="text"
-            placeholder="Descripción"
-            className="border p-2 rounded-lg"
-            value={newTx.description}
-            onChange={(e) =>
-              setNewTx({ ...newTx, description: e.target.value })
-            }
-          />
+        <div className="grid grid-cols-3 gap-4 mt-3">
+          <select
+            className="border p-2 rounded"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="ALL">Todos</option>
+            <option value="INCOME">Ingresos</option>
+            <option value="EXPENSE">Gastos</option>
+          </select>
 
           <select
-            className="border p-2 rounded-lg"
-            value={newTx.category}
-            onChange={(e) => setNewTx({ ...newTx, category: e.target.value })}
+            className="border p-2 rounded"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
           >
-            <option value="">Categoría</option>
-            {categories[newTx.type].map((cat) => (
-              <option key={cat}>{cat}</option>
+            <option value="ALL">Todas las categorías</option>
+            <option value="SUELDO">Sueldo</option>
+            <option value="VENTA">Venta</option>
+            <option value="AHORROS">Ahorros</option>
+            <option value="DEVOLUCION">Devolución</option>
+            <option value="SUPERMERCADO">Supermercado</option>
+            <option value="SERVICIOS">Servicios</option>
+            <option value="TRANSPORTE">Transporte</option>
+            <option value="SALUD">Salud</option>
+            <option value="OTROS">Otros</option>
+          </select>
+
+          <select
+            className="border p-2 rounded"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+          >
+            <option value="ALL">Todos los meses</option>
+            {[...Array(12)].map((_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {new Date(0, i).toLocaleString("es-AR", { month: "long" })}
+              </option>
             ))}
           </select>
         </div>
-
-        <button
-          onClick={addTransaction}
-          className="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 rounded-lg"
-        >
-          Agregar
-        </button>
       </div>
 
-      {/* LISTADO */}
-      <div className="bg-white shadow-md rounded-xl p-6 border border-amber-200">
-        <h3 className="text-lg font-semibold mb-4">Movimientos</h3>
+      {/* LIST */}
+      <TransactionList
+        transactions={filteredTransactions}
+        onDelete={deleteTx}
+        onEdit={openEdit}
+      />
 
-        {transactions.length === 0 ? (
-          <p className="text-gray-500">No hay movimientos todavía.</p>
-        ) : (
-          <ul className="space-y-3">
-            {transactions.map((tx) => (
-              <li
-                key={tx.id}
-                className="p-4 bg-gray-50 rounded-lg flex justify-between items-center border"
-              >
-                <div>
-                  <p
-                    className={`text-lg font-bold ${
-                      tx.type === "income" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {tx.type === "income" ? "+ " : "- "}$
-                    {tx.amount.toLocaleString("es-AR")}
-                  </p>
-                  <p className="text-sm text-gray-600">{tx.description}</p>
-                  <p className="text-xs text-gray-400">{tx.category}</p>
-                </div>
-                <button
-                  onClick={() => deleteTx(tx.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  🗑
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* STATS */}
+      <StatsCharts transactions={filteredTransactions} />
+
+      {/* EDIT MODAL */}
+      {showEditModal && (
+        <EditModal
+          tx={selectedTx}
+          onClose={() => setShowEditModal(false)}
+          refresh={loadFinanceData}
+        />
+      )}
     </div>
   );
 }
