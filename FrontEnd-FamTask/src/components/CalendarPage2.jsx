@@ -40,13 +40,29 @@ export default function CalendarPage() {
   const daysOfWeek = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const [googleConnected, setGoogleConnected] = useState(false);
 
-  useEffect(() => {
+/*   useEffect(() => {
     fetch("http://localhost:8080/api/google/calendar/status", {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then((res) => res.json())
       .then((data) => setGoogleConnected(data.linked));
-  }, []);
+  }, []); */
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+  const dni = localStorage.getItem("dni"); // 🔥 guardalo al loguearte
+
+  if (!token || !dni) return;
+
+  fetch(`http://localhost:8080/api/google/calendar/status?state=${dni}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(res => res.json())
+    .then(data => {
+      setGoogleConnected(data.linked);
+    })
+    .catch(err => console.error("Error al verificar estado Google:", err));
+}, []);
+
 
   const getEventsForDay = (
     day,
