@@ -16,19 +16,19 @@ public class EmergencyContactService {
     private final EmergencyContactRepository repository;
     private final UserRepository userRepository;
 
-    public EmergencyContact get(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-        return repository.findByUserDni(user.getDni())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Emergency contact not found"));
+    public EmergencyContact get(String dni) {
+        return repository.findByUserDni(dni)
+                .orElse(new EmergencyContact()); // no explota si está vacío
     }
 
-    public EmergencyContact createOrUpdate(String email, EmergencyContact data) {
-        User user = userRepository.findByEmail(email)
+    public EmergencyContact createOrUpdate(String dni, EmergencyContact data) {
+
+        User user = userRepository.findById(dni)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        repository.findByUserDni(user.getDni()).ifPresent(existing -> data.setId(existing.getId()));
+        // Si ya existe, actualizamos, si no creamos
+        repository.findByUserDni(dni).ifPresent(existing -> data.setId(existing.getId()));
+
         data.setUser(user);
         return repository.save(data);
     }

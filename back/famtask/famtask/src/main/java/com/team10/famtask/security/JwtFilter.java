@@ -102,7 +102,6 @@ if (skip) {
     System.out.println("⏭️ Saltando JWT para: " + path);
 }
 
-return skip;
-
-
+    return skip;
+    }
 }

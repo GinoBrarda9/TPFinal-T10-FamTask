@@ -8,29 +8,29 @@ import com.team10.famtask.service.profile.WorkOrStudyInfoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/profile/medical-info")
 @RequiredArgsConstructor
-
-
 public class MedicalInfoController {
 
     private final MedicalInfoService service;
-    private final JwtService jwtService;
 
     @GetMapping
-    public ResponseEntity<MedicalInfo> get(@RequestHeader("Authorization") String authHeader) {
-        String email = jwtService.extractUsername(authHeader.replace("Bearer ", ""));
-        return ResponseEntity.ok(service.get(email));
+    public ResponseEntity<MedicalInfo> get() {
+        org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String dni = (String) auth.getPrincipal();
+        return ResponseEntity.ok(service.get(dni));
     }
 
     @PostMapping
     public ResponseEntity<MedicalInfo> createOrUpdate(
-            @RequestHeader("Authorization") String authHeader,
             @RequestBody MedicalInfo data) {
-        String email = jwtService.extractUsername(authHeader.replace("Bearer ", ""));
-        return ResponseEntity.ok(service.createOrUpdate(email, data));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String dni = (String) auth.getPrincipal();
+        return ResponseEntity.ok(service.createOrUpdate(dni, data));
     }
 }
