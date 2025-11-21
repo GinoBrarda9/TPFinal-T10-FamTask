@@ -1,5 +1,6 @@
 package com.team10.famtask.google.controller;
 
+import com.team10.famtask.entity.family.User;
 import com.team10.famtask.google.service.GoogleOAuthService;
 import com.team10.famtask.repository.family.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,6 +33,7 @@ public class GoogleCalendarController {
         return ResponseEntity.ok(Map.of("url", url));
     }
 
+
     @GetMapping("/callback")
     public void handleCalendarCallback(
             @RequestParam("code") String code,
@@ -54,21 +56,35 @@ public class GoogleCalendarController {
         // Redirección al frontend
         response.sendRedirect("http://localhost:5173/google/success");
     }
+
+
     @GetMapping("/status")
-    public ResponseEntity<?> getStatus() {
+    public ResponseEntity<?> getStatus(
+            @RequestParam(required = false) String state
+    ) {
 
-        String dni = getLoggedUserDni();
+        String dni;
 
-        var user = userRepository.findByDni(dni)
+        if (state != null && !state.isBlank()) {
+            // Si viene desde Google callback
+            dni = state;
+        } else {
+            // Si viene desde tu frontend con JWT
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            if (principal == null || principal.equals("anonymousUser")) {
+                return ResponseEntity.status(401).body("User not authenticated");
+            }
+
+            dni = principal.toString();
+        }
+
+        User user = userRepository.findById(dni)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("linked", user.isGoogleLinked());
-        response.put("googleEmail", user.getGoogleEmail());
-        response.put("googleId", user.getGoogleId());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("linked", user.isGoogleLinked()));
     }
+
 
 
 

@@ -1,6 +1,11 @@
 package com.team10.famtask.controller;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeTokenRequest;
+import com.google.api.client.googleapis.auth.oauth2.GoogleTokenResponse;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.google.config.GoogleCredentialsConfig;
 import com.team10.famtask.google.dto.GoogleLoginResponse;
 import com.team10.famtask.google.service.GoogleOAuthService;
 import com.team10.famtask.repository.family.UserRepository;
@@ -10,7 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -23,13 +28,14 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final GoogleOAuthService googleOAuthService;
+    private final GoogleCredentialsConfig googleConfig;
 
-    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder, GoogleOAuthService googleOAuthService) {
-        this.userRepository = userRepository;
+    public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder, GoogleOAuthService googleOAuthService, GoogleCredentialsConfig googleConfig){
+      this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.googleOAuthService = googleOAuthService;
-
+        this.googleConfig = googleConfig;
     }
 
     // ====================
@@ -100,11 +106,45 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("url", url));
     }
 
-    @GetMapping("/google/callback")
-    public ResponseEntity<GoogleLoginResponse> googleCallback(@RequestParam String code) {
-        GoogleLoginResponse response = googleOAuthService.handleGoogleCallback(code);
-        return ResponseEntity.ok(response);
+    @GetMapping("/auth/google/callback")
+    public ResponseEntity<?> googleCallback(
+            @RequestParam String code,
+            @RequestParam String state
+    ) {
+        String dni = state.replace("dni=", "");
+        User user = userRepository.findById(dni)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        try {
+            GoogleTokenResponse tokenResponse =
+                    new GoogleAuthorizationCodeTokenRequest(
+                            GoogleNetHttpTransport.newTrustedTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            "https://oauth2.googleapis.com/token",
+                            googleConfig.getClientId(),
+                            googleConfig.getClientSecret(),
+                            code,
+                            googleConfig.getRedirectUri()
+                    ).execute();
+
+            // Guardar tokens…
+
+            // --- Guardar tokens ---
+            user.setGoogleAccessToken(tokenResponse.getAccessToken());
+            user.setGoogleRefreshToken(tokenResponse.getRefreshToken());
+            user.setGoogleLinked(true);
+            user.setGoogleTokenUpdatedAt(LocalDateTime.now());
+
+            userRepository.save(user);
+
+            // Redirigir de vuelta al front
+            return ResponseEntity.ok("Cuenta de Google vinculada nuevamente");
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error al vincular Google: " + e.getMessage());
+        }
     }
+
 
 
     // ====================

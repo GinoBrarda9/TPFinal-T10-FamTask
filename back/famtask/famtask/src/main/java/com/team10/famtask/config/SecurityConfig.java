@@ -67,6 +67,7 @@ public class SecurityConfig {
         .requestMatchers("/api/google/**").permitAll()
         .requestMatchers("/api/auth/google/**").permitAll()
         .requestMatchers("/api/google/callback/**").permitAll()
+        .requestMatchers("/api/google/calendar/**").permitAll()
 
         // ===== AUTH GENERAL (PÚBLICO) =====
         .requestMatchers("/api/auth/**").permitAll()

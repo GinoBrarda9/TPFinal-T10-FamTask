@@ -5,6 +5,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeToken
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.team10.famtask.entity.family.User;
+import com.team10.famtask.google.config.GoogleCredentialsConfig;
 import com.team10.famtask.google.dto.GoogleLoginResponse;
 import com.team10.famtask.repository.family.UserRepository;
 import com.team10.famtask.security.JwtService;
@@ -27,6 +28,7 @@ public class GoogleOAuthService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final Dotenv dotenv;
+    private final GoogleCredentialsConfig googleConfig;
 
     private static final GsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
 
@@ -125,27 +127,24 @@ public class GoogleOAuthService {
 
     public String generateCalendarAuthUrl(String dni) {
 
-        String clientId = dotenv.get("GOOGLE_CLIENT_ID");
-        String redirectUri = dotenv.get("GOOGLE_REDIRECT_URI");
+        String clientId = googleConfig.getClientId();
+        String redirectUri = googleConfig.getRedirectUri();
 
         String scopes =
                 "openid email profile "
                         + "https://www.googleapis.com/auth/calendar "
                         + "https://www.googleapis.com/auth/calendar.events";
 
-
-        String authorizationUrl =
-                "https://accounts.google.com/o/oauth2/v2/auth"
-                        + "?client_id=" + clientId
-                        + "&redirect_uri=" + redirectUri
-                        + "&response_type=code"
-                        + "&scope=" + URLEncoder.encode(scopes, StandardCharsets.UTF_8)
-                        + "&access_type=offline"
-                        + "&prompt=consent"
-                        + "&state=" + dni;
-
-        return authorizationUrl;
+        return "https://accounts.google.com/o/oauth2/v2/auth"
+                + "?client_id=" + clientId
+                + "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8)
+                + "&response_type=code"
+                + "&scope=" + URLEncoder.encode(scopes, StandardCharsets.UTF_8)
+                + "&access_type=offline"
+                + "&prompt=consent"
+                + "&state=" + dni;
     }
+
     public void exchangeCalendarCodeForTokens(String code, String dni) {
         try {
             var httpTransport = GoogleNetHttpTransport.newTrustedTransport();
@@ -153,10 +152,10 @@ public class GoogleOAuthService {
             var tokenResponse = new GoogleAuthorizationCodeTokenRequest(
                     httpTransport,
                     JSON_FACTORY,
-                    dotenv.get("GOOGLE_CLIENT_ID"),
-                    dotenv.get("GOOGLE_CLIENT_SECRET"),
+                    googleConfig.getClientId(),
+                    googleConfig.getClientSecret(),
                     code,
-                    dotenv.get("GOOGLE_REDIRECT_URI")
+                    googleConfig.getRedirectUri()
             ).execute();
 
             String accessToken = tokenResponse.getAccessToken();

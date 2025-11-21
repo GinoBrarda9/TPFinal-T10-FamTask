@@ -67,19 +67,36 @@ public class EventService {
                 .allDay(dto.isAllDay())
                 .family(family)
                 .assignedTo(member)
-                .createdBy(currentUser)              // ✅ siempre seteamos el creador
-                .reminderDayBeforeSent(false)        // opcional: inicializar flags explícitamente
+                .createdBy(currentUser)
+                .reminderDayBeforeSent(false)
                 .reminderHourBeforeSent(false)
                 .build();
 
         Event saved = eventRepository.save(event);
 
-        // ✅ Sincronizar con Google sólo si el creador tiene refresh token válido
-        if (Boolean.TRUE.equals(saved.getCreatedBy().isGoogleLinked())
-                && saved.getCreatedBy().getGoogleRefreshToken() != null) {
-            googleCalendarService.syncEvent(saved);
+        // 🔗 Sincronizar con Google
+        if (Boolean.TRUE.equals(saved.getCreatedBy().isGoogleLinked()) &&
+                saved.getCreatedBy().getGoogleRefreshToken() != null) {
+
+            try {
+                googleCalendarService.syncEvent(saved);
+
+            } catch (IllegalStateException ex) {
+
+                if ("GOOGLE_REAUTH_REQUIRED".equals(ex.getMessage())) {
+                    log.warn("⚠️ Google vinculación perdida para '{}'. Se requiere nueva autorización.", currentUser.getEmail());
+
+                    throw new ResponseStatusException(
+                            HttpStatus.PRECONDITION_REQUIRED,
+                            "GOOGLE_REAUTH_REQUIRED"
+                    );
+                }
+
+                throw ex;
+            }
+
         } else {
-            log.warn("⚠️ El creador no tiene Google vinculado o no hay refresh token: se omite sincronización.");
+            log.warn("⚠️ El creador no tiene Google vinculado. No se sincroniza.");
         }
 
         return saved;
@@ -114,11 +131,11 @@ public class EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
 
-        if (event.getFamily() != null) { // Familiar
+        if (event.getFamily() != null) {
             if (!"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administradores pueden editar eventos familiares.");
             }
-        } else { // Personal
+        } else {
             if (event.getAssignedTo() == null ||
                     !event.getAssignedTo().getUser().getDni().equals(currentUser.getDni())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes editar este evento personal.");
@@ -142,13 +159,27 @@ public class EventService {
 
         Event updated = eventRepository.save(event);
 
-        // ✅ Sincronizar updates (usa createdBy por dentro del GoogleCalendarService)
-        if (updated.getCreatedBy() != null
-                && Boolean.TRUE.equals(updated.getCreatedBy().isGoogleLinked())
-                && updated.getCreatedBy().getGoogleRefreshToken() != null) {
-            googleCalendarService.updateEvent(updated);
+        // 🔗 Sincronizar update
+        if (updated.getCreatedBy() != null &&
+                Boolean.TRUE.equals(updated.getCreatedBy().isGoogleLinked()) &&
+                updated.getCreatedBy().getGoogleRefreshToken() != null) {
+
+            try {
+                googleCalendarService.updateEvent(updated);
+
+            } catch (IllegalStateException ex) {
+
+                if ("GOOGLE_REAUTH_REQUIRED".equals(ex.getMessage())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.PRECONDITION_REQUIRED,
+                            "GOOGLE_REAUTH_REQUIRED"
+                    );
+                }
+                throw ex;
+            }
+
         } else {
-            log.warn("⚠️ Evento sin creador con Google válido; se omite update en Calendar.");
+            log.warn("⚠️ No se puede actualizar en Google (no hay vinculación válida).");
         }
 
         return updated;
@@ -162,25 +193,37 @@ public class EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado."));
 
-        if (event.getFamily() != null) { // Familiar
+        if (event.getFamily() != null) {
             if (!"ADMIN".equalsIgnoreCase(currentUser.getRole()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administradores pueden eliminar eventos familiares.");
-        } else { // Personal
+        } else {
             if (event.getAssignedTo() == null ||
                     !event.getAssignedTo().getUser().getDni().equals(currentUser.getDni()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes eliminar este evento personal.");
         }
 
-        // ✅ Primero intentar borrar en Google si corresponde
-        if (event.getCreatedBy() != null
-                && Boolean.TRUE.equals(event.getCreatedBy().isGoogleLinked())
-                && event.getCreatedBy().getGoogleRefreshToken() != null) {
-            googleCalendarService.deleteEvent(event);
+        // 🔗 Intentar borrar en Google
+        if (event.getCreatedBy() != null &&
+                Boolean.TRUE.equals(event.getCreatedBy().isGoogleLinked()) &&
+                event.getCreatedBy().getGoogleRefreshToken() != null) {
+
+            try {
+                googleCalendarService.deleteEvent(event);
+
+            } catch (IllegalStateException ex) {
+                if ("GOOGLE_REAUTH_REQUIRED".equals(ex.getMessage())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.PRECONDITION_REQUIRED,
+                            "GOOGLE_REAUTH_REQUIRED"
+                    );
+                }
+                throw ex;
+            }
+
         } else {
-            log.warn("⚠️ Evento sin creador con Google válido; se omite delete en Calendar.");
+            log.warn("⚠️ No se elimina en Google (vinculación no válida).");
         }
 
-        // Luego borrar en BD
         eventRepository.delete(event);
     }
 }
