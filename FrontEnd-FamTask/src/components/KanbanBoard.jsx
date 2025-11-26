@@ -255,11 +255,11 @@ export default function KanbanBoard() {
       <h1 className="text-3xl font-bold mb-4">Kanban Familiar</h1>
 
       {/* COLUMNS */}
-      <div className="flex gap-6 overflow-x-auto pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
         {columns.map((col) => (
           <div
             key={col.id}
-            className="w-80 bg-white rounded-2xl shadow border flex-shrink-0"
+            className="bg-white rounded-2xl shadow border p-0 flex flex-col"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, col.id)}
           >
