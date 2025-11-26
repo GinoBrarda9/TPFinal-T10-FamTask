@@ -165,9 +165,7 @@ export default function KanbanBoard() {
       // update UI
       setColumns((prev) =>
         prev.map((c) =>
-          c.id === selectedColumnId
-            ? { ...c, cards: [...c.cards, created] }
-            : c
+          c.id === selectedColumnId ? { ...c, cards: [...c.cards, created] } : c
         )
       );
 
@@ -253,7 +251,7 @@ export default function KanbanBoard() {
     );
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50">
+    <div className="p-6 bg-gray-50 h-full max-h-[80vh] overflow-hidden rounded-2xl">
       <h1 className="text-3xl font-bold mb-4">Kanban Familiar</h1>
 
       {/* COLUMNS */}
@@ -286,8 +284,7 @@ export default function KanbanBoard() {
                   )}
                   {card.dueDate && (
                     <p className="text-xs mt-2 text-gray-500">
-                      📅{" "}
-                      {new Date(card.dueDate).toLocaleDateString("es-AR")}
+                      📅 {new Date(card.dueDate).toLocaleDateString("es-AR")}
                     </p>
                   )}
                 </div>
@@ -339,9 +336,7 @@ export default function KanbanBoard() {
               onChange={(e) =>
                 setNewTask({
                   ...newTask,
-                  dueDate: e.target.value
-                    ? `${e.target.value}T00:00:00`
-                    : "",
+                  dueDate: e.target.value ? `${e.target.value}T00:00:00` : "",
                 })
               }
             />

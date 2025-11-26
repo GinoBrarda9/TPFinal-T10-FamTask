@@ -784,9 +784,9 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 items-start ">
           {/* Card: Mi familia */}
-          <div className="bg-white rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-1 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-amber-30 rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-1 hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-amber-700">Mi familia</h3>
               {family && (
@@ -909,12 +909,12 @@ export default function HomePage() {
             )}
           </div>
           {/* Card: Tablero Kanban */}
-          <div className="bg-white rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-2 hover:shadow-2xl transition-all duration-300">
+          <div className="bg-gray-50 rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-2 hover:shadow-2xl transition-all duration-300">
             <KanbanBoard compact />
           </div>
 
           {/* Card: Board de Actividades/Eventos */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
+          <div className="lg:col-span-3 bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold">Board de Eventos</h3>
               <button
