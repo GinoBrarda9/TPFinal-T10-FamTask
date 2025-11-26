@@ -9,4 +9,5 @@ public record HomePageResponseDTO(
         String familyName,
         List<FamilyMemberDTO> members,
         List<Event> upcomingEvents
+
 ) {}

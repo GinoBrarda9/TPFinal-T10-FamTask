@@ -12,6 +12,8 @@ import SignupForm from "./components/SignupForm";
 import HomePage from "./components/HomePage";
 import ProfilePage from "./components/ProfilePage";
 import CalendarPage from "./components/CalendarPage2";
+import FAQ from "./components/FAQ";
+import TermsModal from "./components/TermsModal";
 import "./App.css";
 
 function App() {
@@ -57,7 +59,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          <Route path="/terminos" element={<TermsModal />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route
             path="/profile"
             element={

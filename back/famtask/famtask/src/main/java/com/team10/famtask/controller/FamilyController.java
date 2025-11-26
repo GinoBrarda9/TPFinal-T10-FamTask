@@ -46,8 +46,13 @@ public class FamilyController {
                         m.getUser().getDni(),
                         m.getUser().getName(),
                         m.getUser().getEmail(),
-                        m.getRole()))
+                        m.getRole(),
+                        m.getUser().getContactInfo() != null
+                                ? m.getUser().getContactInfo().getPhone()
+                                : null
+                ))
                 .toList();
+
 
         FamilyDTO dto = new FamilyDTO(created.getId(), created.getName(), membersDTO);
 
@@ -66,8 +71,14 @@ public class FamilyController {
                         .name(m.getUser().getName())
                         .email(m.getUser().getEmail())
                         .role(m.getRole())
+                        .phone(
+                                m.getUser().getContactInfo() != null
+                                        ? m.getUser().getContactInfo().getPhone()
+                                        : null
+                        )
                         .build()
                 )
+
                 .toList();
 
         return ResponseEntity.ok(response);

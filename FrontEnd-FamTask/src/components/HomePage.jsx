@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import KanbanBoard from "./KanbanBoard";
+import TermsModal from "../components/TermsModal";
 
 export default function HomePage() {
   const [currentView, setCurrentView] = useState("home");
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+
   const [userName, setUserName] = useState("Usuario");
   const [userDni, setUserDni] = useState("");
   const [showCreateFamilyModal, setShowCreateFamilyModal] = useState(false);
@@ -132,72 +135,71 @@ export default function HomePage() {
     }
   };
 
- const handleCreateOrUpdateEvent = async () => {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    alert("No hay sesión activa");
-    return;
-  }
-
-  if (!eventForm.title.trim()) {
-    alert("El título es obligatorio");
-    return;
-  }
-
-  if (!eventForm.startTime || !eventForm.endTime) {
-    alert("Las fechas de inicio y fin son obligatorias");
-    return;
-  }
-
-  // Validar que si es evento familiar, el usuario sea ADMIN
-  if (eventForm.familyId && userRole !== "ADMIN") {
-    alert("Solo los administradores pueden crear eventos familiares");
-    return;
-  }
-
-  const eventData = {
-    title: eventForm.title.trim(),
-    description: eventForm.description?.trim() || "",
-    startTime: eventForm.startTime,
-    endTime: eventForm.endTime,
-    color: eventForm.color || "#FF5733",
-    location: eventForm.location?.trim() || "",
-    allDay: eventForm.allDay || false,
-    familyId: eventForm.familyId || null,
-    memberDni: eventForm.familyId ? null : userDni,
-  };
-
-  try {
-    const url = editingEvent
-      ? `http://localhost:8080/api/events/${editingEvent.id}`
-      : "http://localhost:8080/api/events";
-
-    const method = editingEvent ? "PATCH" : "POST"; // ✅ ARREGLADO
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(eventData),
-    });
-
-    if (response.ok) {
-      alert(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
-      setShowEventModal(false);
-      resetEventForm();
-      fetchEvents();
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      alert(`Error: ${errorData.message || "Error desconocido"}`);
+  const handleCreateOrUpdateEvent = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("No hay sesión activa");
+      return;
     }
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Error de conexión con el servidor");
-  }
-};
 
+    if (!eventForm.title.trim()) {
+      alert("El título es obligatorio");
+      return;
+    }
+
+    if (!eventForm.startTime || !eventForm.endTime) {
+      alert("Las fechas de inicio y fin son obligatorias");
+      return;
+    }
+
+    // Validar que si es evento familiar, el usuario sea ADMIN
+    if (eventForm.familyId && userRole !== "ADMIN") {
+      alert("Solo los administradores pueden crear eventos familiares");
+      return;
+    }
+
+    const eventData = {
+      title: eventForm.title.trim(),
+      description: eventForm.description?.trim() || "",
+      startTime: eventForm.startTime,
+      endTime: eventForm.endTime,
+      color: eventForm.color || "#FF5733",
+      location: eventForm.location?.trim() || "",
+      allDay: eventForm.allDay || false,
+      familyId: eventForm.familyId || null,
+      memberDni: eventForm.familyId ? null : userDni,
+    };
+
+    try {
+      const url = editingEvent
+        ? `http://localhost:8080/api/events/${editingEvent.id}`
+        : "http://localhost:8080/api/events";
+
+      const method = editingEvent ? "PATCH" : "POST"; // ✅ ARREGLADO
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(eventData),
+      });
+
+      if (response.ok) {
+        alert(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
+        setShowEventModal(false);
+        resetEventForm();
+        fetchEvents();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Error: ${errorData.message || "Error desconocido"}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error de conexión con el servidor");
+    }
+  };
 
   const handleDeleteEvent = async (eventId) => {
     if (!confirm("¿Estás seguro de eliminar este evento?")) return;
@@ -363,6 +365,11 @@ export default function HomePage() {
               dni: m.dni ?? m.userDni ?? m.id ?? "",
               name: m.name ?? m.userName ?? "—",
               role: String(m.role ?? m.userRole ?? "").toUpperCase(),
+              phone:
+                m.phone ?? // Backend correcto
+                m.phoneNumber ?? // Por si usa camelCase
+                m.phone_number ?? // Por si viene en snake_case
+                null,
             }))
           : [],
       };
@@ -612,22 +619,33 @@ export default function HomePage() {
               <span>Finanzas</span>
             </button>
 
-            <button className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg text-left">
+            {/* Navegar al FAQ */}
+            <button
+              onClick={() => navigate("/faq")}
+              className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
+                viewBox="0 0 28 28"
                 fill="none"
-                viewBox="0 0 24 24"
                 stroke="currentColor"
+                strokeWidth="2"
               >
+                <circle
+                  cx="14"
+                  cy="14"
+                  r="12"
+                  stroke="currentColor"
+                  fill="none"
+                />
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  d="M14 19h.01M11.6 10.2a3 3 0 114.8 0c-.5 1.8-2.4 2.5-2.4 4.5v.3"
                 />
               </svg>
-              <span>Familia</span>
+              Preguntas Frecuentes
             </button>
           </nav>
 
@@ -829,12 +847,17 @@ export default function HomePage() {
                           {/* Botón WhatsApp Web */}
                           <button
                             onClick={() =>
-                              window.open(
-                                `https://web.whatsapp.com/send?phone=${
-                                  m.dni || ""
-                                }`,
-                                "_blank"
-                              )
+                              m.phone
+                                ? window.open(
+                                    `https://wa.me/${m.phone.replace(
+                                      /\D/g,
+                                      ""
+                                    )}`,
+                                    "_blank"
+                                  )
+                                : alert(
+                                    "Este miembro no tiene teléfono cargado"
+                                  )
                             }
                             title="Chatear por WhatsApp"
                             className="p-1.5 rounded-full hover:scale-110 transition-transform"

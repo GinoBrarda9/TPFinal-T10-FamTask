@@ -38,9 +38,13 @@ public class HomePageService {
                         m.getUser().getDni(),
                         m.getUser().getName(),
                         m.getUser().getEmail(),
-                        m.getRole()
+                        m.getRole(),
+                        m.getUser().getContactInfo() != null
+                                ? m.getUser().getContactInfo().getPhone()
+                                : null
                 ))
                 .toList();
+
 
         LocalDateTime now = LocalDateTime.now();
 // eventos familiares
