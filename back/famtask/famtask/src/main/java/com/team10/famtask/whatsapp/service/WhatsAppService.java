@@ -70,6 +70,8 @@ public class WhatsAppService {
         String token = dotenv.get("WHATSAPP_TOKEN");
         String phoneId = dotenv.get("WHATSAPP_PHONE_ID");
 
+        System.out.println("-------- ✅ Enviando plantilla --------");
+
         if (token == null || phoneId == null) {
             System.err.println("❌ ERROR: Variables WHATSAPP_TOKEN o WHATSAPP_PHONE_ID no configuradas en .env");
             return;
@@ -122,10 +124,10 @@ public class WhatsAppService {
 
         String message = switch (type) {
             case "DAY_BEFORE" ->
-                    "📆 *Recordatorio de tarea*\n" +
+                    "📆 *Recordatorio de tarea*\n " +
                             "Falta *1 día* para: *" + title + "*";
             case "HOUR_BEFORE" ->
-                    "⏰ *Recordatorio de tarea*\n" +
+                    "⏰ *Recordatorio de tarea*\n " +
                             "Falta *1 hora* para: *" + title + "*";
             case "EXPIRED" ->
                     "❗ *Tarea vencida*\n" +

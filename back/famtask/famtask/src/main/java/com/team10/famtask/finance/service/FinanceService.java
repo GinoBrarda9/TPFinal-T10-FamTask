@@ -1,9 +1,8 @@
 package com.team10.famtask.finance.service;
 
-import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.finance.dto.MovementDTO;
 import com.team10.famtask.finance.entity.Movement;
-import com.team10.famtask.finance.entity.MovementCategory;
+import com.team10.famtask.entity.family.Family;
 import com.team10.famtask.finance.entity.MovementType;
 import com.team10.famtask.finance.mapper.MovementMapper;
 import com.team10.famtask.finance.repository.MovementRepository;
@@ -53,7 +52,7 @@ public class FinanceService {
                 .createdAt(LocalDateTime.now())
                 .family(family)
                 .build();
-
+        movement.setCreatedBy(securityService.getCurrentUser());
         return MovementMapper.toDTO(movementRepository.save(movement));
     }
 

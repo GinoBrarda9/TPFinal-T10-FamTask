@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.4",
     "jwt-decode": "^3.1.2",
     "react": "^19.1.1",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "recharts": "^3.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

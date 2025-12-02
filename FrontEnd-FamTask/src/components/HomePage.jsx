@@ -619,6 +619,81 @@ export default function HomePage() {
               <span>Finanzas</span>
             </button>
 
+            {/* Reportes */}
+            <div className="w-full">
+              <button
+                onClick={() => setCurrentView(currentView === "reports" ? "" : "reports")}
+                className={`w-full flex items-center justify-between p-3 rounded-lg ${
+                  currentView === "reports"
+                    ? "bg-amber-50 text-amber-600"
+                    : "hover:bg-gray-50 text-gray-700"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h18M3 9h18M3 15h18M3 21h18"
+                    />
+                  </svg>
+                  Reportes
+                </span>
+
+                {/* Flechita */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-4 w-4 transform transition-transform ${
+                    currentView === "reports" ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+
+              {/* Submenú */}
+              {currentView === "reports" && (
+                <div className="pl-10 mt-2 space-y-2">
+                  <button
+                    onClick={() => navigate("/reports/finance")}
+                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
+                  >
+                    Finanzas
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/reports/kanban")}
+                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
+                  >
+                    Tareas
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/reports/events")}
+                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
+                  >
+                    Eventos
+                  </button>
+                </div>
+              )}
+            </div>
+
+
             {/* Navegar al FAQ */}
             <button
               onClick={() => navigate("/faq")}

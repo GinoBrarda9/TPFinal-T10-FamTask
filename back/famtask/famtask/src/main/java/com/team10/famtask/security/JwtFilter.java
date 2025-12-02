@@ -96,7 +96,7 @@ boolean skip =
         path.equals("/api/google/calendar/auth/url") ||  // URL de autorización (develop)
         path.startsWith("/swagger-ui/") ||               // Swagger UI
         path.startsWith("/v3/api-docs/") ||              // OpenAPI docs
-        path.equals("/error");                           // error handler
+        path.startsWith("/error");                           // error handler
 
 if (skip) {
     System.out.println("⏭️ Saltando JWT para: " + path);

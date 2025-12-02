@@ -14,6 +14,11 @@ import ProfilePage from "./components/ProfilePage";
 import CalendarPage from "./components/CalendarPage2";
 import FAQ from "./components/FAQ";
 import TermsModal from "./components/TermsModal";
+import FinanceReportPage from "./components/FinanceReportPage";
+import KanbanReportPage from "./components/KanbanReportPage";
+import EventReportPage from "./components/EventReportPage";
+
+
 import "./App.css";
 
 function App() {
@@ -91,6 +96,20 @@ function App() {
               )
             }
           />
+          <Route
+            path="/reports/finance"
+            element={
+              <ProtectedRoute>
+                <FinanceReportPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="/reports/kanban" element={<KanbanReportPage />} />
+
+          <Route path="/reports/events" element={<EventReportPage />} />
+
+
         </Routes>
 
         {/* Modal de Signup */}

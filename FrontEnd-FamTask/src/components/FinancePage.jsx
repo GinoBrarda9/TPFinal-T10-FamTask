@@ -121,14 +121,28 @@ export default function FinancePage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
 
-      {/* FLECHA VOLVER */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-amber-600 hover:text-amber-800 mb-4"
-      >
-        <span className="text-2xl">←</span>
-        <span className="font-medium">Volver</span>
-      </button>
+     <div className="mb-6">
+        <button
+          onClick={() => navigate("/home")}
+          className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Volver al inicio
+        </button>
+      </div>
 
       <h1 className="text-3xl font-bold text-amber-600 mb-6">
         Finanzas Familiares 💰

@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -54,10 +55,33 @@ public class HomePageService {
         List<Event> personalEvents = eventRepository.findByAssignedTo_User_DniAndFinishedFalse(dni);
 
 // merge + filtrar futuros + ordenar
+        LocalDate today = LocalDate.now();
+
+// Primer día del mes actual
+        LocalDate firstDay = LocalDate.now().withDayOfMonth(1);
+
+// Primer día del mes siguiente
+        LocalDate firstDayNextMonth = firstDay.plusMonths(1);
+
         List<Event> upcomingEvents = Stream.concat(familyEvents.stream(), personalEvents.stream())
-                .filter(e -> e.getStartTime() != null && e.getStartTime().isAfter(now))
+                .filter(e -> e.getStartTime() != null)
+                .filter(e -> {
+                    LocalDate eventDate = e.getStartTime().toLocalDate();
+
+                    // Evento dentro del mes actual
+                    boolean isInThisMonth =
+                            !eventDate.isBefore(firstDay) &&
+                                    eventDate.isBefore(firstDayNextMonth);
+
+                    // Evento no pasado (comparado con ahora)
+                    boolean isFutureOrToday =
+                            !e.getStartTime().isBefore(now);
+
+                    return isInThisMonth && isFutureOrToday;
+                })
                 .sorted(Comparator.comparing(Event::getStartTime))
                 .toList();
+
 
 
         return new HomePageResponseDTO(

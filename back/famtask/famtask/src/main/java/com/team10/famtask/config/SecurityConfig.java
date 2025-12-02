@@ -95,6 +95,9 @@ public class SecurityConfig {
         .requestMatchers("/api/board/**").authenticated()
         .requestMatchers("/api/cards/**").authenticated()
 
+        // ===== REPORTES =====
+        .requestMatchers("/api/reports/**").authenticated()
+
         // ===== FINANCE =====
         .requestMatchers("/api/finance/**").hasAnyRole("USER", "ADMIN", "MEMBER")
 
