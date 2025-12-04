@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { showSuccess } from "../utils/notifications";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -194,7 +195,7 @@ export default function ProfilePage() {
       body: JSON.stringify(contactData),
     });
 
-    alert("Información guardada");
+    showSuccess("Información guardada");
     loadContact(token);
   };
 
@@ -212,7 +213,7 @@ export default function ProfilePage() {
       body: JSON.stringify(workData),
     });
 
-    alert("Información guardada");
+    showSuccess("Información guardada");
     loadWork(token);
   };
 
@@ -239,7 +240,7 @@ export default function ProfilePage() {
       body: JSON.stringify(emergencyData),
     });
 
-    alert("Información guardada");
+    showSuccess("Información guardada");
     loadMedical(token);
     loadEmergency(token);
   };

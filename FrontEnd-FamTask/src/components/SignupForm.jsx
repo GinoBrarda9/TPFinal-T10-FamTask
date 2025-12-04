@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import TermsModal from "./TermsModal";
 import famtaskIcon from "../assets/arbol.png";
+import { showSuccess, showError, showWarning } from "../utils/notifications";
 
 export default function SignupForm({ onNavigateToLogin }) {
   const [formData, setFormData] = useState({
@@ -61,7 +62,7 @@ export default function SignupForm({ onNavigateToLogin }) {
     }
 
     if (!acceptedTerms) {
-      alert("Debes aceptar los Términos y Condiciones");
+      showWarning("Debes aceptar los Términos y Condiciones");
       return;
     }
 
@@ -84,13 +85,13 @@ export default function SignupForm({ onNavigateToLogin }) {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Usuario registrado correctamente");
+        showSuccess("Usuario registrado correctamente");
         onNavigateToLogin();
       } else {
-        alert(data.error || "Error al registrar");
+        showError(data.error || "Error al registrar");
       }
     } catch (error) {
-      alert("No se pudo conectar al servidor");
+      showError("No se pudo conectar al servidor");
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { ToastContainer } from 'react-toastify';
 import GoogleSuccess from "./components/GoogleSuccess";
 import FinancePage from "./components/FinancePage";
 import LoginForm from "./components/LoginForm";
@@ -129,6 +130,9 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Toast Container para notificaciones */}
+        <ToastContainer />
       </div>
     </Router>
   );

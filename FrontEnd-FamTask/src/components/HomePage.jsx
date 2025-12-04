@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import CalendarPage from "./CalendarPage2";
 import KanbanBoard from "./KanbanBoard";
-import TermsModal from "../components/TermsModal";
+import Sidebar from "./Sidebar";
+import FamilyCard from "./cards/FamilyCard";
+import UpcomingEventsCard from "./cards/UpcomingEventsCard";
+import InvitationsCard from "./cards/InvitationsCard";
+import QuickStatsCard from "./cards/QuickStatsCard";
+import { showSuccess, showError, showWarning, showInfo } from "../utils/notifications";
+import useConfirm from "../hooks/useConfirm";
 
 export default function HomePage() {
   const [currentView, setCurrentView] = useState("home");
   const navigate = useNavigate();
+  const { ConfirmDialog, confirm } = useConfirm();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [termsModalOpen, setTermsModalOpen] = useState(false);
 
   const [userName, setUserName] = useState("Usuario");
   const [userDni, setUserDni] = useState("");
@@ -67,7 +75,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // 1️⃣ Cargar familia e invitaciones cuando el usuario está identificado
   useEffect(() => {
     if (userDni) {
       fetchInvitations();
@@ -75,7 +82,6 @@ export default function HomePage() {
     }
   }, [userDni]);
 
-  // 2️⃣ Cargar eventos solo cuando ya exista una familia o al menos el DNI del usuario
   useEffect(() => {
     if (userDni && (family || family?.id)) {
       fetchEvents();
@@ -97,12 +103,9 @@ export default function HomePage() {
 
     setLoadingEvents(true);
     try {
-      // Obtener eventos personales
       const personalResp = await fetch(
         `http://localhost:8080/api/events/member/${userDni}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       let personalEvents = [];
@@ -110,14 +113,11 @@ export default function HomePage() {
         personalEvents = await personalResp.json();
       }
 
-      // Obtener eventos familiares si tiene familia
       let familyEvents = [];
       if (family?.id) {
         const familyResp = await fetch(
           `http://localhost:8080/api/events/family/${family.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         if (familyResp.ok) {
@@ -125,7 +125,6 @@ export default function HomePage() {
         }
       }
 
-      // Combinar eventos
       const allEvents = [...personalEvents, ...familyEvents];
       setEvents(allEvents);
     } catch (e) {
@@ -138,23 +137,22 @@ export default function HomePage() {
   const handleCreateOrUpdateEvent = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("No hay sesión activa");
+      showWarning("No hay sesión activa");
       return;
     }
 
     if (!eventForm.title.trim()) {
-      alert("El título es obligatorio");
+      showWarning("El título es obligatorio");
       return;
     }
 
     if (!eventForm.startTime || !eventForm.endTime) {
-      alert("Las fechas de inicio y fin son obligatorias");
+      showWarning("Las fechas de inicio y fin son obligatorias");
       return;
     }
 
-    // Validar que si es evento familiar, el usuario sea ADMIN
     if (eventForm.familyId && userRole !== "ADMIN") {
-      alert("Solo los administradores pueden crear eventos familiares");
+      showWarning("Solo los administradores pueden crear eventos familiares");
       return;
     }
 
@@ -175,7 +173,7 @@ export default function HomePage() {
         ? `http://localhost:8080/api/events/${editingEvent.id}`
         : "http://localhost:8080/api/events";
 
-      const method = editingEvent ? "PATCH" : "POST"; // ✅ ARREGLADO
+      const method = editingEvent ? "PATCH" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -187,22 +185,29 @@ export default function HomePage() {
       });
 
       if (response.ok) {
-        alert(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
+        showSuccess(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
         setShowEventModal(false);
         resetEventForm();
         fetchEvents();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`Error: ${errorData.message || "Error desconocido"}`);
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error de conexión con el servidor");
+      showError("Error de conexión con el servidor");
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    if (!confirm("¿Estás seguro de eliminar este evento?")) return;
+    const confirmed = await confirm({
+      title: "¿Eliminar evento?",
+      message: "¿Estás seguro de eliminar este evento? Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+      type: "danger"
+    });
+
+    if (!confirmed) return;
 
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -217,15 +222,15 @@ export default function HomePage() {
       );
 
       if (response.ok) {
-        alert("Evento eliminado exitosamente");
+        showSuccess("Evento eliminado exitosamente");
         fetchEvents();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`Error: ${errorData.message || "Error desconocido"}`);
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error de conexión");
+      showError("Error de conexión");
     }
   };
 
@@ -267,9 +272,7 @@ export default function HomePage() {
     try {
       const resp = await fetch(
         "http://localhost:8080/api/invitations/pending",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (resp.ok) {
@@ -365,11 +368,7 @@ export default function HomePage() {
               dni: m.dni ?? m.userDni ?? m.id ?? "",
               name: m.name ?? m.userName ?? "—",
               role: String(m.role ?? m.userRole ?? "").toUpperCase(),
-              phone:
-                m.phone ?? // Backend correcto
-                m.phoneNumber ?? // Por si usa camelCase
-                m.phone_number ?? // Por si viene en snake_case
-                null,
+              phone: m.phone ?? m.phoneNumber ?? m.phone_number ?? null,
             }))
           : [],
       };
@@ -388,20 +387,20 @@ export default function HomePage() {
 
   const handleSendInvitation = async () => {
     if (!inviteEmail.trim()) {
-      alert("Por favor ingresa un email");
+      showWarning("Por favor ingresa un email");
       return;
     }
 
     const familyId = createdFamilyId ?? family?.id;
 
     if (!familyId) {
-      alert("No hay una familia seleccionada");
+      showWarning("No hay una familia seleccionada");
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("No hay token de autenticación");
+      showWarning("No hay token de autenticación");
       return;
     }
 
@@ -422,15 +421,15 @@ export default function HomePage() {
       });
 
       if (response.ok) {
-        alert("¡Invitación enviada exitosamente!");
+        showSuccess("¡Invitación enviada exitosamente!");
         setInviteEmail("");
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`Error: ${errorData.message || "Error desconocido"}`);
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
       }
     } catch (error) {
       console.error("Error de conexión:", error);
-      alert("Error de conexión con el servidor");
+      showError("Error de conexión con el servidor");
     }
   };
 
@@ -448,7 +447,11 @@ export default function HomePage() {
       );
 
       if (response.ok) {
-        alert(accept ? "¡Invitación aceptada!" : "Invitación rechazada");
+        if (accept) {
+          showSuccess("¡Invitación aceptada!");
+        } else {
+          showInfo("Invitación rechazada");
+        }
         fetchInvitations();
         if (accept) {
           fetchFamily();
@@ -456,11 +459,11 @@ export default function HomePage() {
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`Error: ${errorData.message || "Error desconocido"}`);
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error de conexión");
+      showError("Error de conexión");
     }
   };
 
@@ -492,1199 +495,524 @@ export default function HomePage() {
   };
 
   const canEditEvent = (event) => {
-    // Si es evento familiar, solo ADMIN puede editar
     if (event.familyId) {
       return userRole === "ADMIN";
     }
-    // Si es evento personal, solo el dueño puede editar
     return event.memberDni === userDni;
   };
 
-  const getInvitationStatusColor = (status) => {
-    switch (status) {
-      case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
-      case "ACCEPTED":
-        return "bg-green-100 text-green-800";
-      case "REJECTED":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-  // Si estamos en la vista del calendario, mostramos el componente CalendarPage
+  // Si estamos en vista calendario
   if (currentView === "calendar") {
     return <CalendarPage onNavigateBack={() => setCurrentView("home")} />;
   }
 
-  return (
-    <div className="min-h-screen w-full bg-gray-50 flex flex-col">
-      {/* SIDEBAR */}
-      <div
-        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="p-6 flex flex-col h-full">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-amber-600">FamTask</h2>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <nav className="space-y-2 flex-1">
-            <button
-              onClick={() => {
-                setCurrentView("home");
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg text-left ${
-                currentView === "home"
-                  ? "bg-amber-50 text-amber-600"
-                  : "hover:bg-gray-50"
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-              <span>Inicio</span>
-            </button>
-            <button
-              onClick={() => navigate("/calendar")}
-              className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span>Calendario</span>
-            </button>
-
-            <button
-              onClick={() => navigate("/finances")}
-              className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.105 0 2 .672 2 1.5S13.105 11 12 11s-2 .672-2 1.5S10.895 14 12 14m0-8c2.21 0 4 1.343 4 3s-1.79 3-4 3"
-                />
-              </svg>
-              <span>Finanzas</span>
-            </button>
-
-            {/* Reportes */}
-            <div className="w-full">
-              <button
-                onClick={() => setCurrentView(currentView === "reports" ? "" : "reports")}
-                className={`w-full flex items-center justify-between p-3 rounded-lg ${
-                  currentView === "reports"
-                    ? "bg-amber-50 text-amber-600"
-                    : "hover:bg-gray-50 text-gray-700"
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 3h18M3 9h18M3 15h18M3 21h18"
-                    />
-                  </svg>
-                  Reportes
-                </span>
-
-                {/* Flechita */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-4 w-4 transform transition-transform ${
-                    currentView === "reports" ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {/* Submenú */}
-              {currentView === "reports" && (
-                <div className="pl-10 mt-2 space-y-2">
-                  <button
-                    onClick={() => navigate("/reports/finance")}
-                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
-                  >
-                    Finanzas
-                  </button>
-
-                  <button
-                    onClick={() => navigate("/reports/kanban")}
-                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
-                  >
-                    Tareas
-                  </button>
-
-                  <button
-                    onClick={() => navigate("/reports/events")}
-                    className="w-full text-left p-2 text-gray-700 hover:text-amber-600 hover:bg-gray-50 rounded-lg"
-                  >
-                    Eventos
-                  </button>
-                </div>
-              )}
-            </div>
-
-
-            {/* Navegar al FAQ */}
-            <button
-              onClick={() => navigate("/faq")}
-              className="w-full flex items-center gap-3 p-3 text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 28 28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle
-                  cx="14"
-                  cy="14"
-                  r="12"
-                  stroke="currentColor"
-                  fill="none"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14 19h.01M11.6 10.2a3 3 0 114.8 0c-.5 1.8-2.4 2.5-2.4 4.5v.3"
-                />
-              </svg>
-              Preguntas Frecuentes
-            </button>
-          </nav>
-
-          <div className="pt-4 border-t">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 p-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={() => setSidebarOpen(false)}
+  // Si estamos en vista kanban
+  if (currentView === "kanban") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          currentView={currentView}
+          onNavigate={setCurrentView}
+          userName={userName}
+          userRole={userRole}
         />
-      )}
 
-      {/* NAVBAR */}
-      <nav className="flex items-center justify-between bg-white shadow-md w-full px-6 py-4 sticky top-0 z-30">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <div className="text-amber-600 font-bold text-2xl tracking-tight">
-            FamTask
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              setShowNotificationsModal(true);
-              fetchInvitations();
-            }}
-            className="p-2 hover:bg-gray-100 rounded-full relative"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-            {notificationCount > 0 && (
-              <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
-                {notificationCount}
-              </span>
-            )}
-          </button>
-
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center space-x-3 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-white font-semibold px-4 py-2 rounded-full shadow-md transition-all duration-200"
-            >
-              <span>{userName}</span>
-              <img
-                src={`https://ui-avatars.com/api/?name=${userName}&background=FFB020&color=fff`}
-                alt="avatar"
-                className="w-8 h-8 rounded-full border-2 border-white"
-              />
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+        <div className="flex-1 flex flex-col min-h-screen">
+          {/* Navbar minimalista */}
+          <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+            <div className="flex items-center justify-between h-16 px-6">
+              <div className="flex items-center gap-4">
                 <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate("/profile");
-                  }}
-                  className="w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition"
+                  onClick={() => setSidebarOpen(true)}
+                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  Ver perfil
+                  <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition"
-                >
-                  Cerrar sesión
-                </button>
+                <h1 className="text-lg font-semibold text-gray-700">
+                  Hola, <span className="text-amber-600">{userName}</span>
+                </h1>
               </div>
-            )}
-          </div>
-        </div>
-      </nav>
 
-      {/* MAIN */}
-      <main className="flex-1 w-full flex flex-col">
-        <div className="bg-gradient-to-r from-amber-400 to-yellow-500 shadow-lg p-8 text-white w-full">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            ¡Hola, {userName}! 👋
-          </h1>
-          <p className="text-amber-50 text-lg">
-            Bienvenido a tu espacio personal
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 items-start ">
-          {/* Card: Mi familia */}
-          <div className="bg-amber-30 rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-1 hover:shadow-2xl transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-amber-700">Mi familia</h3>
-              {family && (
-                <span className="text-sm text-gray-500">
-                  {familyMembers?.length ?? 0} miembro(s)
-                </span>
-              )}
-            </div>
-
-            {loadingFamily ? (
-              <div className="flex items-center gap-2 text-gray-500">
-                <svg
-                  className="animate-spin h-5 w-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                  />
-                  <path
-                    className="opacity-75"
-                    d="M4 12a8 8 0 018-8"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                </svg>
-                Cargando datos...
-              </div>
-            ) : family ? (
-              <>
-                <h4 className="text-lg font-semibold text-gray-800 mb-3">
-                  {family.name}
-                </h4>
-
-                {!familyMembers || familyMembers.length === 0 ? (
-                  <p className="text-gray-500">Aún no hay miembros.</p>
-                ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {familyMembers.map((m) => (
-                      <li
-                        key={m.dni || m.email || m.name}
-                        className="py-2 flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-800 truncate">
-                            {m.name}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {m.dni || m.email}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {/* Botón WhatsApp Web */}
-                          <button
-                            onClick={() =>
-                              m.phone
-                                ? window.open(
-                                    `https://wa.me/${m.phone.replace(
-                                      /\D/g,
-                                      ""
-                                    )}`,
-                                    "_blank"
-                                  )
-                                : alert(
-                                    "Este miembro no tiene teléfono cargado"
-                                  )
-                            }
-                            title="Chatear por WhatsApp"
-                            className="p-1.5 rounded-full hover:scale-110 transition-transform"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 448 512"
-                              fill="#25D366"
-                              className="h-6 w-6"
-                            >
-                              <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32 100.8 32 1.6 131.2 1.6 254.3c0 39.8 10.4 78.6 30.2 113.1L0 480l115.5-30.3c33.2 18.2 70.6 27.8 108.4 27.8h.1c123.1 0 222.3-99.2 222.3-222.3 0-59.3-23.1-115.1-65.1-157.1zM223.9 438.3c-34.7 0-68.6-9.3-98.1-26.8l-7-4.2-68.4 18 18.3-66.7-4.5-6.8c-18.7-28.1-28.5-60.8-28.5-94.5 0-94.5 76.9-171.4 171.4-171.4 45.8 0 88.9 17.8 121.3 50.1 32.4 32.4 50.2 75.5 50.1 121.3 0 94.5-76.9 171.4-171.4 171.4zm94.7-138.3c-5.2-2.6-30.8-15.2-35.6-17-4.8-1.7-8.3-2.6-11.8 2.6-3.5 5.2-13.6 17-16.6 20.5-3 3.5-6.1 3.9-11.3 1.3-5.2-2.6-22.1-8.1-42-25.8-15.5-13.8-26-30.8-29-36-3-5.2-.3-8 2.3-10.6 2.3-2.3 5.2-6.1 7.8-9.1 2.6-3 3.5-5.2 5.2-8.7 1.7-3.5.9-6.5-.4-9.1-1.3-2.6-11.8-28.6-16.2-39.2-4.3-10.3-8.6-8.9-11.8-9.1-3-.2-6.5-.2-10-.2s-9.1 1.3-13.8 6.5c-4.8 5.2-18.1 17.7-18.1 43.2s18.6 50.1 21.3 53.6c2.6 3.5 36.7 56 89 78.6 12.4 5.4 22 8.6 29.5 11 12.4 3.9 23.7 3.4 32.6 2.1 9.9-1.5 30.8-12.6 35.1-24.8 4.3-12.2 4.3-22.7 3-24.8-1.3-2.1-4.8-3.5-10-6.1z" />
-                            </svg>
-                          </button>
-
-                          {/* Rol */}
-                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                            {(m.role || "MIEMBRO").toString().toUpperCase()}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+              {/* Profile menu */}
+              <div className="flex items-center gap-3">
+                {notificationCount > 0 && (
+                  <button
+                    onClick={() => setShowNotificationsModal(true)}
+                    className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs
+                                   rounded-full flex items-center justify-center font-medium">
+                      {notificationCount}
+                    </span>
+                  </button>
                 )}
 
-                <div className="mt-4">
+                <div className="relative">
                   <button
-                    onClick={() => {
-                      if (family?.id) setCreatedFamilyId(family.id);
-                      setShowInviteMemberModal(true);
-                    }}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    Invitar miembro
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500
+                                  flex items-center justify-center text-white font-bold shadow-md">
+                      {userName?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
                   </button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center">
-                <p className="text-gray-600 mb-4">
-                  Aún no perteneces a una familia.
-                </p>
-                <button
-                  onClick={() => setShowCreateFamilyModal(true)}
-                  className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-                >
-                  Crear familia
-                </button>
-              </div>
-            )}
-          </div>
-          {/* Card: Tablero Kanban */}
-          <div className="bg-gray-50 rounded-2xl p-6 shadow-xl border border-amber-300/70 lg:col-span-2 hover:shadow-2xl transition-all duration-300">
-            <KanbanBoard compact />
-          </div>
 
-          {/* Card: Board de Actividades/Eventos */}
-          <div className="lg:col-span-3 bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold">Board de Eventos</h3>
-              <button
-                onClick={() => {
-                  resetEventForm();
-                  setShowEventModal(true);
-                }}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Nuevo Evento
-              </button>
-            </div>
-
-            {loadingEvents ? (
-              <div className="flex items-center justify-center py-12">
-                <svg
-                  className="animate-spin h-8 w-8 text-amber-500"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                  />
-                  <path
-                    className="opacity-75"
-                    d="M4 12a8 8 0 018-8"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                </svg>
-              </div>
-            ) : events.length === 0 ? (
-              <div className="text-center py-12">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-16 w-16 text-gray-300 mx-auto mb-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-gray-500 text-lg">No hay eventos</p>
-                <p className="text-gray-400 text-sm mt-2">
-                  Crea tu primer evento para comenzar
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {events.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                    style={{ borderLeft: `4px solid ${event.color}` }}
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="text-2xl">📅</div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800">
-                          {event.title}
-                        </h4>
-                        {event.description && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            {event.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-gray-500">
-                            🕐 {formatDateTime(event.startTime)}
-                          </span>
-                          {event.location && (
-                            <span className="text-xs text-gray-500">
-                              📍 {event.location}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getEventTypeColor(
-                          event
-                        )}`}
+                  {menuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl
+                                  border border-gray-100 py-2 z-50">
+                      <button
+                        onClick={() => { navigate("/profile"); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
                       >
-                        {getEventTypeLabel(event)}
-                      </span>
-                      {canEditEvent(event) && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEditEvent(event)}
-                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5 text-blue-600"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEvent(event.id)}
-                            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5 text-red-600"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
+                        Ver perfil
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        Cerrar sesión
+                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-      {/* Modal Crear/Editar Evento */}
-      {showEventModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl sticky top-0 bg-white">
-              <h2 className="text-2xl font-bold text-gray-800">
-                {editingEvent ? "Editar Evento" : "Crear Nuevo Evento"}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowEventModal(false);
-                  resetEventForm();
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Tipo de evento */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tipo de evento
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="eventType"
-                      checked={!eventForm.familyId}
-                      onChange={() =>
-                        setEventForm({ ...eventForm, familyId: null })
-                      }
-                      className="w-4 h-4 text-amber-500"
-                    />
-                    <span className="text-sm text-gray-700">Personal</span>
-                  </label>
-                  {family && userRole === "ADMIN" && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="eventType"
-                        checked={!!eventForm.familyId}
-                        onChange={() =>
-                          setEventForm({ ...eventForm, familyId: family.id })
-                        }
-                        className="w-4 h-4 text-amber-500"
-                      />
-                      <span className="text-sm text-gray-700">Familiar</span>
-                    </label>
                   )}
                 </div>
-                {eventForm.familyId && (
-                  <p className="text-xs text-purple-600 mt-1">
-                    Este evento será visible para toda la familia
-                  </p>
+              </div>
+            </div>
+          </nav>
+
+          {/* Kanban Board */}
+          <div className="flex-1 p-6">
+            <KanbanBoard />
+          </div>
+        </div>
+
+        <ConfirmDialog />
+      </div>
+    );
+  }
+
+  // Vista HOME (Dashboard rediseñado)
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        userName={userName}
+        userRole={userRole}
+      />
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Navbar minimalista */}
+        <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center justify-between h-16 px-6">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-lg font-semibold text-gray-700">
+                Hola, <span className="text-amber-600">{userName}</span> 👋
+              </h1>
+            </div>
+
+            {/* Right side */}
+            <div className="flex items-center gap-3">
+              {/* Notificaciones */}
+              {notificationCount > 0 && (
+                <button
+                  onClick={() => setShowNotificationsModal(true)}
+                  className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs
+                               rounded-full flex items-center justify-center font-medium">
+                    {notificationCount}
+                  </span>
+                </button>
+              )}
+
+              {/* Profile dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500
+                                flex items-center justify-center text-white font-bold shadow-md">
+                    {userName?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl
+                                border border-gray-100 py-2 z-50">
+                    <button
+                      onClick={() => { navigate("/profile"); setMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Ver perfil
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Main Dashboard Content */}
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
+            {/* Grid 5-7 columns para más espacio a familia */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left sidebar - 5 columns */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* Family Card */}
+                <FamilyCard
+                  family={family}
+                  familyMembers={familyMembers}
+                  loading={loadingFamily}
+                  onInviteMember={() => setShowInviteMemberModal(true)}
+                />
+
+                {/* Quick Stats */}
+                <QuickStatsCard events={events} familyMembers={familyMembers} />
+
+                {/* Invitations */}
+                <InvitationsCard
+                  invitations={invitations}
+                  onAccept={handleRespondInvitation}
+                  onReject={handleRespondInvitation}
+                />
+
+                {/* Create Family CTA */}
+                {!family && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={() => setShowCreateFamilyModal(true)}
+                    className="w-full p-6 bg-gradient-to-r from-amber-400 to-yellow-500
+                             text-white rounded-xl font-semibold hover:from-amber-500
+                             hover:to-yellow-600 transition-all duration-200 shadow-lg
+                             hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M12 4v16m8-8H4" />
+                    </svg>
+                    Crear mi familia
+                  </motion.button>
                 )}
               </div>
 
-              {/* Título */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Título *
-                </label>
-                <input
-                  type="text"
-                  value={eventForm.title}
-                  onChange={(e) =>
-                    setEventForm({ ...eventForm, title: e.target.value })
-                  }
-                  placeholder="Ej: Reunión familiar"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              {/* Main content - 7 columns */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* Upcoming Events Card */}
+                <UpcomingEventsCard
+                  events={events}
+                  loading={loadingEvents}
+                  onCreateEvent={() => setShowEventModal(true)}
+                  onEditEvent={openEditEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                  canEditEvent={canEditEvent}
+                  getEventTypeLabel={getEventTypeLabel}
+                  getEventTypeColor={getEventTypeColor}
+                  formatDateTime={formatDateTime}
                 />
               </div>
-
-              {/* Descripción */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  value={eventForm.description}
-                  onChange={(e) =>
-                    setEventForm({ ...eventForm, description: e.target.value })
-                  }
-                  placeholder="Detalles del evento..."
-                  rows="3"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                />
-              </div>
-
-              {/* Ubicación */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  value={eventForm.location}
-                  onChange={(e) =>
-                    setEventForm({ ...eventForm, location: e.target.value })
-                  }
-                  placeholder="Ej: Casa, Zoom, etc."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                />
-              </div>
-
-              {/* Fechas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Inicio *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={eventForm.startTime}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, startTime: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Fin *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={eventForm.endTime}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, endTime: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Todo el día */}
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={eventForm.allDay}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, allDay: e.target.checked })
-                    }
-                    className="w-4 h-4 text-amber-500 rounded"
-                  />
-                  <span className="text-sm text-gray-700">Todo el día</span>
-                </label>
-              </div>
-
-              {/* Color */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Color
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={eventForm.color}
-                    onChange={(e) =>
-                      setEventForm({ ...eventForm, color: e.target.value })
-                    }
-                    className="w-16 h-12 rounded-lg cursor-pointer"
-                  />
-                  <span className="text-sm text-gray-600">
-                    {eventForm.color}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
-              <button
-                onClick={() => {
-                  setShowEventModal(false);
-                  resetEventForm();
-                }}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreateOrUpdateEvent}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                {editingEvent ? "Actualizar" : "Crear"}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        </main>
+      </div>
 
-      {/* Modal Crear Familia */}
+      {/* Modal: Create Family */}
       {showCreateFamilyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Crear Familia
-              </h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+          >
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Crear nueva familia</h3>
+            <input
+              type="text"
+              value={familyName}
+              onChange={(e) => setFamilyName(e.target.value)}
+              placeholder="Nombre de la familia"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                       focus:ring-2 focus:ring-amber-400 focus:border-transparent mb-4"
+            />
+            {familyError && (
+              <p className="text-red-600 text-sm mb-4">{familyError}</p>
+            )}
+            <div className="flex gap-3">
               <button
-                onClick={() => setShowCreateFamilyModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Nombre de la Familia
-                </label>
-                <input
-                  type="text"
-                  value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") createFamily();
-                  }}
-                  placeholder="Ej: Familia García"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                  disabled={creatingFamily}
-                />
-              </div>
-
-              {familyError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {familyError}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3 rounded-b-2xl">
-              <button
-                onClick={() => setShowCreateFamilyModal(false)}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
-                disabled={creatingFamily}
+                onClick={() => {
+                  setShowCreateFamilyModal(false);
+                  setFamilyName("");
+                  setFamilyError("");
+                }}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl
+                         font-semibold hover:bg-gray-200 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={createFamily}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={creatingFamily || !familyName.trim()}
+                disabled={creatingFamily}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-400 to-yellow-500
+                         text-white rounded-xl font-semibold hover:from-amber-500
+                         hover:to-yellow-600 transition-all shadow-md disabled:opacity-50"
               >
                 {creatingFamily ? "Creando..." : "Crear"}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
-      {/* Modal Invitar Miembros */}
+      {/* Modal: Invite Member */}
       {showInviteMemberModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Invitar Miembros
-              </h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+          >
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Invitar miembro</h3>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Email del usuario"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                       focus:ring-2 focus:ring-amber-400 focus:border-transparent mb-4"
+            />
+            <div className="flex gap-3">
               <button
                 onClick={() => {
                   setShowInviteMemberModal(false);
                   setInviteEmail("");
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl
+                         font-semibold hover:bg-gray-200 transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                Cancelar
               </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {family && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    📤 Enviando invitación para:{" "}
-                    <span className="font-semibold">{family.name}</span>
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email del usuario
-                </label>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="usuario@ejemplo.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                />
-              </div>
-
               <button
                 onClick={handleSendInvitation}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-400 to-yellow-500
+                         text-white rounded-xl font-semibold hover:from-amber-500
+                         hover:to-yellow-600 transition-all shadow-md"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                Enviar Invitación
+                Enviar invitación
               </button>
             </div>
-
-            <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-2xl">
-              <button
-                onClick={() => {
-                  setShowInviteMemberModal(false);
-                  setInviteEmail("");
-                }}
-                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
-      {/* Modal Notificaciones */}
+      {/* Modal: Notifications */}
       {showNotificationsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Invitaciones
-                </h2>
-                {notificationCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {notificationCount} pendientes
-                  </span>
-                )}
-              </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Notificaciones</h3>
               <button
                 onClick={() => setShowNotificationsModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-              {invitations.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-16 w-16 text-gray-300 mx-auto mb-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">
-                    No tienes invitaciones
+            <div className="space-y-3">
+              {invitations.map((inv) => (
+                <div key={inv.id} className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="text-sm font-medium text-gray-800 mb-2">
+                    Invitación a <strong>{inv.familyName}</strong>
                   </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    Las invitaciones que recibas aparecerán aquí
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {invitations.map((invitation) => (
-                    <div
-                      key={invitation.id}
-                      className="bg-gray-50 rounded-xl p-5 border border-gray-200 hover:shadow-md transition-shadow"
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        handleRespondInvitation(inv.id, true);
+                        setShowNotificationsModal(false);
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-500 text-white text-sm
+                               rounded-lg hover:bg-green-600 transition-colors"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg text-gray-800">
-                            {invitation.familyName}
-                          </h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Invitado por:{" "}
-                            <span className="font-medium">
-                              {invitation.inviterName}
-                            </span>
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            📅{" "}
-                            {new Date(invitation.createdAt).toLocaleDateString(
-                              "es-ES",
-                              {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              }
-                            )}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${getInvitationStatusColor(
-                            invitation.status
-                          )}`}
-                        >
-                          {invitation.status === "PENDING"
-                            ? "Pendiente"
-                            : invitation.status === "ACCEPTED"
-                            ? "Aceptada"
-                            : "Rechazada"}
-                        </span>
-                      </div>
-
-                      {invitation.status === "PENDING" && (
-                        <div className="flex gap-2 mt-4">
-                          <button
-                            onClick={() =>
-                              handleRespondInvitation(invitation.id, true)
-                            }
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            Aceptar
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleRespondInvitation(invitation.id, false)
-                            }
-                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                            Rechazar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      Aceptar
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRespondInvitation(inv.id, false);
+                        setShowNotificationsModal(false);
+                      }}
+                      className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 text-sm
+                               rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
+
+      {/* Modal: Create/Edit Event */}
+      {showEventModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 my-8"
+          >
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              {editingEvent ? "Editar evento" : "Crear nuevo evento"}
+            </h3>
+
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={eventForm.title}
+                onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                placeholder="Título del evento"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                         focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+
+              <textarea
+                value={eventForm.description}
+                onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                placeholder="Descripción (opcional)"
+                rows="3"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                         focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none"
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha y hora de inicio
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eventForm.startTime}
+                    onChange={(e) => setEventForm({ ...eventForm, startTime: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                             focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha y hora de fin
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eventForm.endTime}
+                    onChange={(e) => setEventForm({ ...eventForm, endTime: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                             focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <input
+                type="text"
+                value={eventForm.location}
+                onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+                placeholder="Ubicación (opcional)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl
+                         focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eventForm.allDay}
+                    onChange={(e) => setEventForm({ ...eventForm, allDay: e.target.checked })}
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded
+                             focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-sm text-gray-700">Todo el día</span>
+                </label>
+
+                {family && userRole === "ADMIN" && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!eventForm.familyId}
+                      onChange={(e) => setEventForm({
+                        ...eventForm,
+                        familyId: e.target.checked ? family.id : null
+                      })}
+                      className="w-4 h-4 text-amber-500 border-gray-300 rounded
+                               focus:ring-2 focus:ring-amber-400"
+                    />
+                    <span className="text-sm text-gray-700">Evento familiar</span>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEventModal(false);
+                  resetEventForm();
+                }}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl
+                         font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateOrUpdateEvent}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500
+                         text-white rounded-xl font-semibold hover:from-purple-600
+                         hover:to-blue-600 transition-all shadow-md"
+              >
+                {editingEvent ? "Actualizar" : "Crear evento"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog />
     </div>
   );
 }

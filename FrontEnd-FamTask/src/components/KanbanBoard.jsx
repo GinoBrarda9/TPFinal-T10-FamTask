@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { showSuccess, showError, showWarning } from "../utils/notifications";
 
 export default function KanbanBoard() {
   const navigate = useNavigate();
@@ -144,7 +145,10 @@ export default function KanbanBoard() {
   // Create task
   // ---------------------------
   const handleCreateTask = async () => {
-    if (!newTask.title.trim()) return alert("El título es obligatorio");
+    if (!newTask.title.trim()) {
+      showWarning("El título es obligatorio");
+      return;
+    }
 
     try {
       const body = {
@@ -169,10 +173,11 @@ export default function KanbanBoard() {
         )
       );
 
+      showSuccess("Tarea creada exitosamente");
       closeTaskModal();
     } catch (err) {
       console.error(err);
-      alert("No se pudo crear la tarea");
+      showError("No se pudo crear la tarea");
     }
   };
 
@@ -231,7 +236,7 @@ export default function KanbanBoard() {
       );
     } catch (err) {
       console.error("Error moviendo card:", err);
-      alert("Error moviendo la tarea");
+      showError("Error moviendo la tarea");
     }
 
     setDraggedCard(null);

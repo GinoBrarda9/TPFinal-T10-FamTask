@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { showSuccess, showWarning } from "../utils/notifications";
 
 export default function TransactionForm({ refresh }) {
   const [form, setForm] = useState({
@@ -15,7 +16,7 @@ export default function TransactionForm({ refresh }) {
 
   const addTx = async () => {
     if (!form.amount || !form.description || !form.category) {
-      alert("Completá todos los campos");
+      showWarning("Completá todos los campos");
       return;
     }
 
@@ -32,6 +33,8 @@ export default function TransactionForm({ refresh }) {
         category: form.category,
       }),
     });
+
+    showSuccess("Movimiento agregado exitosamente");
 
     setForm({
       type: "INCOME",

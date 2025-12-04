@@ -1,0 +1,530 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import KanbanBoard from "./KanbanBoard";
+import TermsModal from "../components/TermsModal";
+import { showSuccess, showError, showWarning, showInfo } from "../utils/notifications";
+import useConfirm from "../hooks/useConfirm";
+
+export default function HomePage() {
+  const [currentView, setCurrentView] = useState("home");
+  const navigate = useNavigate();
+  const { ConfirmDialog, confirm } = useConfirm();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+
+  const [userName, setUserName] = useState("Usuario");
+  const [userDni, setUserDni] = useState("");
+  const [showCreateFamilyModal, setShowCreateFamilyModal] = useState(false);
+  const [showInviteMemberModal, setShowInviteMemberModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [familyName, setFamilyName] = useState("");
+  const [createdFamilyId, setCreatedFamilyId] = useState(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitations, setInvitations] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [family, setFamily] = useState(null);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [creatingFamily, setCreatingFamily] = useState(false);
+  const [familyError, setFamilyError] = useState("");
+  const [loadingFamily, setLoadingFamily] = useState(false);
+  const [userRole, setUserRole] = useState("USER");
+
+  // Estados para eventos
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventForm, setEventForm] = useState({
+    title: "",
+    description: "",
+    startTime: "",
+    endTime: "",
+    color: "#FF5733",
+    location: "",
+    allDay: false,
+    familyId: null,
+    memberDni: null,
+  });
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        if (token.split(".").length === 3) {
+          const base64Url = token.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join("")
+          );
+          const decoded = JSON.parse(jsonPayload);
+          setUserName(decoded.name || "Usuario");
+          setUserDni(decoded.sub || decoded.dni);
+        }
+      } catch (err) {
+        console.warn("No se pudo decodificar token:", err);
+      }
+    }
+  }, []);
+
+  // 1️⃣ Cargar familia e invitaciones cuando el usuario está identificado
+  useEffect(() => {
+    if (userDni) {
+      fetchInvitations();
+      fetchFamily();
+    }
+  }, [userDni]);
+
+  // 2️⃣ Cargar eventos solo cuando ya exista una familia o al menos el DNI del usuario
+  useEffect(() => {
+    if (userDni && (family || family?.id)) {
+      fetchEvents();
+    }
+  }, [userDni, family]);
+
+  useEffect(() => {
+    if (family) {
+      const currentMember = familyMembers.find((m) => m.dni === userDni);
+      if (currentMember) {
+        setUserRole(currentMember.role);
+      }
+    }
+  }, [family, familyMembers, userDni]);
+
+  const fetchEvents = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !userDni) return;
+
+    setLoadingEvents(true);
+    try {
+      // Obtener eventos personales
+      const personalResp = await fetch(
+        `http://localhost:8080/api/events/member/${userDni}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      let personalEvents = [];
+      if (personalResp.ok) {
+        personalEvents = await personalResp.json();
+      }
+
+      // Obtener eventos familiares si tiene familia
+      let familyEvents = [];
+      if (family?.id) {
+        const familyResp = await fetch(
+          `http://localhost:8080/api/events/family/${family.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (familyResp.ok) {
+          familyEvents = await familyResp.json();
+        }
+      }
+
+      // Combinar eventos
+      const allEvents = [...personalEvents, ...familyEvents];
+      setEvents(allEvents);
+    } catch (e) {
+      console.error("Error al cargar eventos:", e);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleCreateOrUpdateEvent = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showWarning("No hay sesión activa");
+      return;
+    }
+
+    if (!eventForm.title.trim()) {
+      showWarning("El título es obligatorio");
+      return;
+    }
+
+    if (!eventForm.startTime || !eventForm.endTime) {
+      showWarning("Las fechas de inicio y fin son obligatorias");
+      return;
+    }
+
+    // Validar que si es evento familiar, el usuario sea ADMIN
+    if (eventForm.familyId && userRole !== "ADMIN") {
+      showWarning("Solo los administradores pueden crear eventos familiares");
+      return;
+    }
+
+    const eventData = {
+      title: eventForm.title.trim(),
+      description: eventForm.description?.trim() || "",
+      startTime: eventForm.startTime,
+      endTime: eventForm.endTime,
+      color: eventForm.color || "#FF5733",
+      location: eventForm.location?.trim() || "",
+      allDay: eventForm.allDay || false,
+      familyId: eventForm.familyId || null,
+      memberDni: eventForm.familyId ? null : userDni,
+    };
+
+    try {
+      const url = editingEvent
+        ? `http://localhost:8080/api/events/${editingEvent.id}`
+        : "http://localhost:8080/api/events";
+
+      const method = editingEvent ? "PATCH" : "POST"; // ✅ ARREGLADO
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(eventData),
+      });
+
+      if (response.ok) {
+        showSuccess(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
+        setShowEventModal(false);
+        resetEventForm();
+        fetchEvents();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      showError("Error de conexión con el servidor");
+    }
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    const confirmed = await confirm({
+      title: "¿Eliminar evento?",
+      message: "¿Estás seguro de eliminar este evento? Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+      type: "danger"
+    });
+
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/events/${eventId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        showSuccess("Evento eliminado exitosamente");
+        fetchEvents();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      showError("Error de conexión");
+    }
+  };
+
+  const openEditEvent = (event) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title || "",
+      description: event.description || "",
+      startTime: event.startTime || "",
+      endTime: event.endTime || "",
+      color: event.color || "#FF5733",
+      location: event.location || "",
+      allDay: event.allDay || false,
+      familyId: event.familyId || null,
+      memberDni: event.memberDni || null,
+    });
+    setShowEventModal(true);
+  };
+
+  const resetEventForm = () => {
+    setEditingEvent(null);
+    setEventForm({
+      title: "",
+      description: "",
+      startTime: "",
+      endTime: "",
+      color: "#FF5733",
+      location: "",
+      allDay: false,
+      familyId: null,
+      memberDni: null,
+    });
+  };
+
+  const fetchInvitations = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !userDni) return;
+
+    try {
+      const resp = await fetch(
+        "http://localhost:8080/api/invitations/pending",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (resp.ok) {
+        const data = await resp.json();
+        setInvitations(data || []);
+        setNotificationCount(
+          (data || []).filter((inv) => inv.status === "PENDING").length
+        );
+      } else if (resp.status === 404) {
+        setInvitations([]);
+        setNotificationCount(0);
+      }
+    } catch (e) {
+      console.error("Error al cargar invitaciones:", e);
+    }
+  };
+
+  const createFamily = async () => {
+    setFamilyError("");
+    if (!familyName.trim()) {
+      setFamilyError("Ingresá un nombre para la familia.");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setFamilyError("No hay sesión activa.");
+      return;
+    }
+
+    try {
+      setCreatingFamily(true);
+      const resp = await fetch("http://localhost:8080/api/families", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: familyName.trim() }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "No se pudo crear la familia.");
+      }
+
+      const data = await resp.json();
+      setCreatedFamilyId(data.id);
+      setShowCreateFamilyModal(false);
+      setShowInviteMemberModal(true);
+      setFamilyName("");
+      await fetchFamily();
+    } catch (e) {
+      setFamilyError(e.message);
+    } finally {
+      setCreatingFamily(false);
+    }
+  };
+
+  const fetchFamily = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const resp = await fetch("http://localhost:8080/api/homepage", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (resp.status === 401) {
+        console.warn("Sesión expirada");
+        localStorage.removeItem("token");
+        return;
+      }
+
+      if (resp.status === 404) {
+        setFamily(null);
+        setFamilyMembers([]);
+        return;
+      }
+
+      if (!resp.ok) {
+        setFamily(null);
+        setFamilyMembers([]);
+        return;
+      }
+
+      const data = await resp.json();
+
+      const normalized = {
+        id: data.familyId ?? data.id ?? null,
+        name: data.familyName ?? data.name ?? "Mi familia",
+        members: Array.isArray(data.members)
+          ? data.members.map((m) => ({
+              dni: m.dni ?? m.userDni ?? m.id ?? "",
+              name: m.name ?? m.userName ?? "—",
+              role: String(m.role ?? m.userRole ?? "").toUpperCase(),
+              phone:
+                m.phone ?? // Backend correcto
+                m.phoneNumber ?? // Por si usa camelCase
+                m.phone_number ?? // Por si viene en snake_case
+                null,
+            }))
+          : [],
+      };
+
+      setFamily(normalized);
+      setFamilyMembers(normalized.members || []);
+      if (normalized.id) {
+        setCreatedFamilyId(normalized.id);
+      }
+    } catch (e) {
+      console.error("Error al cargar familia:", e);
+      setFamily(null);
+      setFamilyMembers([]);
+    }
+  };
+
+  const handleSendInvitation = async () => {
+    if (!inviteEmail.trim()) {
+      showWarning("Por favor ingresa un email");
+      return;
+    }
+
+    const familyId = createdFamilyId ?? family?.id;
+
+    if (!familyId) {
+      showWarning("No hay una familia seleccionada");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showWarning("No hay token de autenticación");
+      return;
+    }
+
+    const payload = {
+      familyId,
+      invitedUserEmail: inviteEmail.trim(),
+      role: "USER",
+    };
+
+    try {
+      const response = await fetch("http://localhost:8080/api/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        showSuccess("¡Invitación enviada exitosamente!");
+        setInviteEmail("");
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      showError("Error de conexión con el servidor");
+    }
+  };
+
+  const handleRespondInvitation = async (invitationId, accept) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/invitations/${invitationId}/respond?accept=${accept}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.ok) {
+        if (accept) {
+          showSuccess("¡Invitación aceptada!");
+        } else {
+          showInfo("Invitación rechazada");
+        }
+        fetchInvitations();
+        if (accept) {
+          fetchFamily();
+          fetchEvents();
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showError(`Error: ${errorData.message || "Error desconocido"}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      showError("Error de conexión");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    window.location.reload();
+  };
+
+  const getEventTypeLabel = (event) => {
+    return event.familyId ? "Familiar" : "Personal";
+  };
+
+  const getEventTypeColor = (event) => {
+    return event.familyId
+      ? "bg-purple-100 text-purple-800"
+      : "bg-blue-100 text-blue-800";
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return "";
+    const date = new Date(dateTimeString);
+    return date.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const canEditEvent = (event) => {
+    // Si es evento familiar, solo ADMIN puede editar
+    if (event.familyId) {
+      return userRole === "ADMIN";
+    }
+    // Si es evento personal, solo el dueño puede editar
+    return event.memberDni === userDni;
+  };
+
+  const getInvitationStatusColor = (status) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800";
+      case "ACCEPTED":
+        return "bg-green-100 text-green-800";
+      case "REJECTED":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+  // Si estamos en la vista del calendario, mostramos el componente CalendarPage
+  if (currentView === "calendar") {
