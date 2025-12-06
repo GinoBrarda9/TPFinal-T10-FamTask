@@ -83,12 +83,6 @@ export default function HomePage() {
   }, [userDni]);
 
   useEffect(() => {
-    if (userDni && (family || family?.id)) {
-      fetchEvents();
-    }
-  }, [userDni, family]);
-
-  useEffect(() => {
     if (family) {
       const currentMember = familyMembers.find((m) => m.dni === userDni);
       if (currentMember) {
@@ -97,42 +91,42 @@ export default function HomePage() {
     }
   }, [family, familyMembers, userDni]);
 
-  const fetchEvents = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !userDni) return;
+  // const fetchEvents = async () => {
+  //   const token = localStorage.getItem("token");
+  //   if (!token || !userDni) return;
 
-    setLoadingEvents(true);
-    try {
-      const personalResp = await fetch(
-        `http://localhost:8080/api/events/member/${userDni}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+  //   setLoadingEvents(true);
+  //   try {
+  //     const personalResp = await fetch(
+  //       `http://localhost:8080/api/events/member/${userDni}`,
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
 
-      let personalEvents = [];
-      if (personalResp.ok) {
-        personalEvents = await personalResp.json();
-      }
+  //     let personalEvents = [];
+  //     if (personalResp.ok) {
+  //       personalEvents = await personalResp.json();
+  //     }
 
-      let familyEvents = [];
-      if (family?.id) {
-        const familyResp = await fetch(
-          `http://localhost:8080/api/events/family/${family.id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+  //     let familyEvents = [];
+  //     if (family?.id) {
+  //       const familyResp = await fetch(
+  //         `http://localhost:8080/api/events/family/${family.id}`,
+  //         { headers: { Authorization: `Bearer ${token}` } }
+  //       );
 
-        if (familyResp.ok) {
-          familyEvents = await familyResp.json();
-        }
-      }
+  //       if (familyResp.ok) {
+  //         familyEvents = await familyResp.json();
+  //       }
+  //     }
 
-      const allEvents = [...personalEvents, ...familyEvents];
-      setEvents(allEvents);
-    } catch (e) {
-      console.error("Error al cargar eventos:", e);
-    } finally {
-      setLoadingEvents(false);
-    }
-  };
+  //     const allEvents = [...personalEvents, ...familyEvents];
+  //     setEvents(allEvents);
+  //   } catch (e) {
+  //     console.error("Error al cargar eventos:", e);
+  //   } finally {
+  //     setLoadingEvents(false);
+  //   }
+  // };
 
   const handleCreateOrUpdateEvent = async () => {
     const token = localStorage.getItem("token");
@@ -188,7 +182,7 @@ export default function HomePage() {
         showSuccess(editingEvent ? "¡Evento actualizado!" : "¡Evento creado!");
         setShowEventModal(false);
         resetEventForm();
-        fetchEvents();
+        fetchFamily();
       } else {
         const errorData = await response.json().catch(() => ({}));
         showError(`Error: ${errorData.message || "Error desconocido"}`);
@@ -223,7 +217,7 @@ export default function HomePage() {
 
       if (response.ok) {
         showSuccess("Evento eliminado exitosamente");
-        fetchEvents();
+        fetchFamily();
       } else {
         const errorData = await response.json().catch(() => ({}));
         showError(`Error: ${errorData.message || "Error desconocido"}`);
@@ -336,6 +330,8 @@ export default function HomePage() {
     if (!token) return;
 
     try {
+      setLoadingFamily(true);
+
       const resp = await fetch("http://localhost:8080/api/homepage", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -349,41 +345,57 @@ export default function HomePage() {
       if (resp.status === 404) {
         setFamily(null);
         setFamilyMembers([]);
+        setEvents([]); // 👈 clave
         return;
       }
 
       if (!resp.ok) {
         setFamily(null);
         setFamilyMembers([]);
+        setEvents([]);
         return;
       }
 
       const data = await resp.json();
 
+      // ✅ Normalizamos familia
       const normalized = {
-        id: data.familyId ?? data.id ?? null,
-        name: data.familyName ?? data.name ?? "Mi familia",
+        id: data.familyId ?? null,
+        name: data.familyName ?? "Mi familia",
         members: Array.isArray(data.members)
           ? data.members.map((m) => ({
-              dni: m.dni ?? m.userDni ?? m.id ?? "",
-              name: m.name ?? m.userName ?? "—",
-              role: String(m.role ?? m.userRole ?? "").toUpperCase(),
-              phone: m.phone ?? m.phoneNumber ?? m.phone_number ?? null,
+              dni: m.dni ?? "",
+              name: m.name ?? "—",
+              role: String(m.role ?? "").toUpperCase(),
+              phone: m.phone ?? null,
             }))
           : [],
       };
 
       setFamily(normalized);
       setFamilyMembers(normalized.members || []);
+
+      // ✅ ACA ES DONDE SE RECONSTRUYEN LOS EVENTOS
+      if (Array.isArray(data.upcomingEvents)) {
+        setEvents(data.upcomingEvents);
+      } else {
+        setEvents([]);
+      }
+
       if (normalized.id) {
         setCreatedFamilyId(normalized.id);
       }
+
     } catch (e) {
       console.error("Error al cargar familia:", e);
       setFamily(null);
       setFamilyMembers([]);
+      setEvents([]);
+    } finally {
+      setLoadingFamily(false);
     }
   };
+
 
   const handleSendInvitation = async () => {
     if (!inviteEmail.trim()) {
@@ -455,7 +467,6 @@ export default function HomePage() {
         fetchInvitations();
         if (accept) {
           fetchFamily();
-          fetchEvents();
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
