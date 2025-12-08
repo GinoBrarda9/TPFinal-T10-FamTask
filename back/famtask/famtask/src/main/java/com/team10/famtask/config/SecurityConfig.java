@@ -112,6 +112,8 @@ public class SecurityConfig {
         .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
         .requestMatchers("/api/users/**").authenticated()
 
+        .requestMatchers("/error").permitAll()
+
         // ===== DEFAULT =====
         .anyRequest().authenticated()
 )

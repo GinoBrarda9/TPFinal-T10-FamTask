@@ -14,6 +14,7 @@ export default function KanbanBoard() {
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState(null);
+  const [editingCard, setEditingCard] = useState(null); // ✅ NUEVO
 
   const [newTask, setNewTask] = useState({
     title: "",
@@ -142,7 +143,7 @@ export default function KanbanBoard() {
   }, []);
 
   // ---------------------------
-  // Create task
+  // Create OR Edit task ✅
   // ---------------------------
   const handleCreateTask = async () => {
     if (!newTask.title.trim()) {
@@ -153,37 +154,66 @@ export default function KanbanBoard() {
     try {
       const body = {
         title: newTask.title.trim(),
-        description: newTask.description.trim(),
+        description: newTask.description?.trim() || "",
         assignedUserDni: newTask.assignedUserDni || null,
-        dueDate: newTask.dueDate || null,
+        dueDate: newTask.dueDate
+        ? new Date(newTask.dueDate).toISOString().slice(0, 19)
+        : null,
+
       };
 
-      const created = await apiFetch(
-        `http://localhost:8080/api/cards/column/${selectedColumnId}`,
-        {
-          method: "POST",
-          body: JSON.stringify(body),
-        }
-      );
+      let saved;
 
-      // update UI
-      setColumns((prev) =>
-        prev.map((c) =>
-          c.id === selectedColumnId ? { ...c, cards: [...c.cards, created] } : c
-        )
-      );
+      if (editingCard) {
+        // ✅ EDIT
+        saved = await apiFetch(
+          `http://localhost:8080/api/cards/${editingCard.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          }
+        );
 
-      showSuccess("Tarea creada exitosamente");
+        setColumns((prev) =>
+          prev.map((col) => ({
+            ...col,
+            cards: col.cards.map((c) => (c.id === saved.id ? saved : c)),
+          }))
+        );
+
+        showSuccess("Tarea actualizada");
+      } else {
+        // ✅ CREATE
+        saved = await apiFetch(
+          `http://localhost:8080/api/cards/column/${selectedColumnId}`,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          }
+        );
+
+        setColumns((prev) =>
+          prev.map((c) =>
+            c.id === selectedColumnId
+              ? { ...c, cards: [...c.cards, saved] }
+              : c
+          )
+        );
+
+        showSuccess("Tarea creada");
+      }
+
       closeTaskModal();
     } catch (err) {
       console.error(err);
-      showError("No se pudo crear la tarea");
+      showError("No se pudo guardar la tarea");
     }
   };
 
   const closeTaskModal = () => {
     setShowTaskModal(false);
     setSelectedColumnId(null);
+    setEditingCard(null);
     setNewTask({
       title: "",
       description: "",
@@ -207,9 +237,18 @@ export default function KanbanBoard() {
 
     const { card, fromColumnId } = draggedCard;
 
+    if (card.finished === true) {
+      showWarning("No se puede mover una tarea finalizada");
+      setDraggedCard(null);
+      return;
+    }
+
     const newPosition =
       columns.find((c) => c.id === newColumnId)?.cards?.length ?? 0;
 
+    const droppedColumn = columns.find(c => c.id === newColumnId);
+    const isFinalColumn = droppedColumn?.name?.toLowerCase().includes("finalizado");
+ 
     try {
       await apiFetch(`http://localhost:8080/api/cards/${card.id}/move`, {
         method: "PATCH",
@@ -219,7 +258,13 @@ export default function KanbanBoard() {
         }),
       });
 
-      // update UI
+      if (isFinalColumn) {
+      await apiFetch(`http://localhost:8080/api/cards/${card.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ finished: true }),
+      });
+    }
+
       setColumns((prev) =>
         prev.map((col) => {
           if (col.id === fromColumnId) {
@@ -228,7 +273,15 @@ export default function KanbanBoard() {
           if (col.id === newColumnId) {
             return {
               ...col,
-              cards: [...col.cards, { ...card, columnId: newColumnId }],
+              cards: [
+                ...col.cards,
+                {
+                  ...card,
+                  columnId: newColumnId,
+                  finished: isFinalColumn ? true : card.finished,
+                  status: isFinalColumn ? "DONE" : card.status,
+                },
+              ],
             };
           }
           return col;
@@ -276,24 +329,80 @@ export default function KanbanBoard() {
             </div>
 
             <div className="p-3 space-y-3 max-h-[65vh] overflow-y-auto">
-              {(col.cards || []).map((card) => (
-                <div
-                  key={card.id}
-                  className="bg-gray-50 border p-4 rounded-xl cursor-move"
-                  draggable
-                  onDragStart={() => handleDragStart(card, col.id)}
-                >
-                  <h4 className="font-bold">{card.title}</h4>
-                  {card.description && (
-                    <p className="text-sm mt-1">{card.description}</p>
-                  )}
-                  {card.dueDate && (
-                    <p className="text-xs mt-2 text-gray-500">
-                      📅 {new Date(card.dueDate).toLocaleDateString("es-AR")}
-                    </p>
-                  )}
-                </div>
-              ))}
+              {(col.cards || []).map((card) => {
+                const now = new Date();
+                const due = card.dueDate ? new Date(card.dueDate) : null;
+
+                const isDone = card.finished === true;
+                const isExpired = !isDone && due && due < now;
+                const isNearDue =
+                  !isDone &&
+                  due &&
+                  due > now &&
+                  (due - now) / (1000 * 60) <= 60;
+
+                let bgColor = "bg-gray-50";
+                let borderColor = "border-gray-300";
+
+                if (isDone) {
+                  bgColor = "bg-green-100";
+                  borderColor = "border-green-500";
+                } else if (isExpired) {
+                  bgColor = "bg-red-100";
+                  borderColor = "border-red-500";
+                } else if (isNearDue) {
+                  bgColor = "bg-orange-100";
+                  borderColor = "border-orange-500";
+                }
+
+                return (
+                  <div
+                    key={card.id}
+                    className={`${bgColor} ${borderColor} border p-4 rounded-xl cursor-move transition`}
+                    draggable
+                    onDragStart={() => handleDragStart(card, col.id)}
+                    onClick={() => {
+                      setEditingCard(card);
+                      setSelectedColumnId(col.id);
+                      setNewTask({
+                        title: card.title || "",
+                        description: card.description || "",
+                        assignedUserDni: card.assignedUserDni || "",
+                        dueDate: card.dueDate ? card.dueDate.slice(0, 16) : "",
+                      });
+                      setShowTaskModal(true);
+                    }}
+                  >
+                    <h4 className="font-bold">{card.title}</h4>
+                    {card.description && (
+                      <p className="text-sm mt-1">{card.description}</p>
+                    )}
+
+                    {card.dueDate && (
+                      <p className="text-xs mt-2 font-medium">
+                        📅{" "}
+                        {new Date(card.dueDate.replace("T", " ")).toLocaleString("es-AR")}
+                      </p>
+                    )}
+
+                    {isDone && (
+                      <span className="inline-block mt-2 text-xs bg-green-600 text-white px-2 py-1 rounded">
+                        ✅ COMPLETADA
+                      </span>
+                    )}
+                    {isExpired && (
+                      <span className="inline-block mt-2 text-xs bg-red-600 text-white px-2 py-1 rounded">
+                        ⚠️ VENCIDA
+                      </span>
+                    )}
+                    {isNearDue && !isExpired && (
+                      <span className="inline-block mt-2 text-xs bg-orange-500 text-white px-2 py-1 rounded">
+                        ⏳ POR VENCER
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
 
               <button
                 className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600"
@@ -313,7 +422,9 @@ export default function KanbanBoard() {
       {showTaskModal && (
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center p-4">
           <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl">
-            <h2 className="text-xl font-bold mb-4">Nueva Tarea</h2>
+            <h2 className="text-xl font-bold mb-4">
+              {editingCard ? "Editar Tarea" : "Nueva Tarea"}
+            </h2>
 
             <input
               type="text"
@@ -335,14 +446,11 @@ export default function KanbanBoard() {
             />
 
             <input
-              type="date"
+              type="datetime-local"
               className="border p-2 rounded-lg w-full mb-3"
-              value={newTask.dueDate.slice(0, 10)}
+              value={newTask.dueDate}
               onChange={(e) =>
-                setNewTask({
-                  ...newTask,
-                  dueDate: e.target.value ? `${e.target.value}T00:00:00` : "",
-                })
+                setNewTask({ ...newTask, dueDate: e.target.value })
               }
             />
 
@@ -358,7 +466,7 @@ export default function KanbanBoard() {
                 className="px-4 py-2 bg-amber-500 text-white rounded-lg"
                 onClick={handleCreateTask}
               >
-                Crear
+                Guardar
               </button>
             </div>
           </div>

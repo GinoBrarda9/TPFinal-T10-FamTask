@@ -188,8 +188,8 @@ public class CardService {
     }
 
     // =========================================================================
-    // MOVE TO ANOTHER COLUMN
-    // =========================================================================
+// MOVE TO ANOTHER COLUMN  ✅ CORREGIDO
+// =========================================================================
     @Transactional
     public Card moveCardToColumn(Long cardId, Long newColumnId, int newPosition) {
 
@@ -204,12 +204,18 @@ public class CardService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot move card to different board");
         }
 
+        // -------------------------
+        // Reordenar columna vieja
+        // -------------------------
         List<Card> oldCards = cardRepository.findByColumnOrderByPosition(oldColumn);
         oldCards.remove(card);
         for (int i = 0; i < oldCards.size(); i++) {
             oldCards.get(i).setPosition(i);
         }
 
+        // -------------------------
+        // Reordenar columna nueva
+        // -------------------------
         List<Card> newCards = cardRepository.findByColumnOrderByPosition(newColumn);
 
         if (newPosition < 0) newPosition = 0;
@@ -221,6 +227,26 @@ public class CardService {
 
         for (int i = 0; i < newCards.size(); i++) {
             newCards.get(i).setPosition(i);
+        }
+
+        // -------------------------
+        // ✅ LÓGICA FINALIZADO ↔ ACTIVO
+        // -------------------------
+        if (newColumn.getName().equalsIgnoreCase("Finalizado")) {
+            card.setFinished(true);
+            card.setStatus(CardStatus.DONE);
+        } else {
+            if (Boolean.TRUE.equals(card.getFinished())) {
+                card.setFinished(false);
+
+                // Reset de recordatorios al reactivar
+                card.setReminderDayBeforeSent(false);
+                card.setReminderHourBeforeSent(false);
+                card.setReminderExpiredSent(false);
+            }
+
+            // Recalcular según fecha
+            updateCardStatus(card);
         }
 
         return card;
