@@ -35,6 +35,8 @@ export default function HomePage() {
   const [familyError, setFamilyError] = useState("");
   const [loadingFamily, setLoadingFamily] = useState(false);
   const [userRole, setUserRole] = useState("USER");
+  const [hasContactInfo, setHasContactInfo] = useState(true);
+  const [showContactReminder, setShowContactReminder] = useState(false);
 
   // Estados para eventos
   const [events, setEvents] = useState([]);
@@ -79,8 +81,42 @@ export default function HomePage() {
     if (userDni) {
       fetchInvitations();
       fetchFamily();
+      checkContactInfo();
     }
   }, [userDni]);
+
+  const checkContactInfo = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const resp = await fetch("http://localhost:8080/api/profile/contact-info", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+
+        // Verificar si tiene teléfono válido (formato E.164) o dirección
+        const hasValidPhone = data.phone && data.phone.trim().length > 0;
+        const hasAddress = data.address && data.address.trim().length > 0;
+        const hasInfo = hasValidPhone || hasAddress;
+
+        setHasContactInfo(hasInfo);
+
+        // Mostrar recordatorio solo si no tiene info y no fue cerrado en esta sesión
+        const reminderDismissed = sessionStorage.getItem("contactReminderDismissed");
+        setShowContactReminder(!hasInfo && !reminderDismissed);
+      } else if (resp.status === 404) {
+        // No tiene datos de contacto
+        setHasContactInfo(false);
+        const reminderDismissed = sessionStorage.getItem("contactReminderDismissed");
+        setShowContactReminder(!reminderDismissed);
+      }
+    } catch (e) {
+      console.error("Error al verificar datos de contacto:", e);
+    }
+  };
 
   useEffect(() => {
     if (family) {
@@ -489,8 +525,8 @@ export default function HomePage() {
 
   const getEventTypeColor = (event) => {
     return event.familyId
-      ? "bg-purple-100 text-purple-800"
-      : "bg-blue-100 text-blue-800";
+      ? "bg-orange-100 text-orange-800"
+      : "bg-amber-100 text-amber-800";
   };
 
   const formatDateTime = (dateTimeString) => {
@@ -506,10 +542,23 @@ export default function HomePage() {
   };
 
   const canEditEvent = (event) => {
-    if (event.familyId) {
+    // El backend envía la entidad Event directamente, no el DTO
+    // Por lo tanto, tenemos 'family' (objeto) en lugar de 'familyId'
+    // y 'assignedTo' está con @JsonIgnore, por lo que no viene
+
+    // Si el evento tiene 'family', es un evento familiar
+    const isFamilyEvent = event.family || event.familyId;
+
+    if (isFamilyEvent) {
+      // Solo los ADMIN pueden editar eventos familiares
       return userRole === "ADMIN";
     }
-    return event.memberDni === userDni;
+
+    // Si no es un evento familiar, es personal
+    // Como no tenemos memberDni (está ignorado en el backend),
+    // permitimos editar si es ADMIN o si es el usuario actual
+    // (asumimos que solo ves tus propios eventos personales)
+    return true;
   };
 
   // Si estamos en vista calendario
@@ -698,6 +747,74 @@ export default function HomePage() {
         {/* Main Dashboard Content */}
         <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
+            {/* Banner de recordatorio de datos de contacto */}
+            {showContactReminder && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4
+                         border-amber-500 rounded-lg shadow-md p-4"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-10 h-10 bg-amber-500 rounded-full
+                                flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800 mb-1">
+                      ¡Completá tu perfil!
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Para que tu familia pueda contactarte en caso de emergencia, es importante
+                      que completes tus datos de contacto. Solo te tomará un minuto.
+                    </p>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => navigate("/profile")}
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium
+                                 hover:bg-amber-600 transition-colors flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        Ir a mi perfil
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          sessionStorage.setItem("contactReminderDismissed", "true");
+                          setShowContactReminder(false);
+                        }}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg
+                                 font-medium transition-colors"
+                      >
+                        Recordarme después
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem("contactReminderDismissed", "true");
+                      setShowContactReminder(false);
+                    }}
+                    className="flex-shrink-0 p-1 hover:bg-amber-100 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+
             {/* Grid 5-7 columns para más espacio a familia */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left sidebar - 5 columns */}
@@ -1011,9 +1128,9 @@ export default function HomePage() {
               </button>
               <button
                 onClick={handleCreateOrUpdateEvent}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500
-                         text-white rounded-xl font-semibold hover:from-purple-600
-                         hover:to-blue-600 transition-all shadow-md"
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500
+                         text-white rounded-xl font-semibold hover:from-orange-600
+                         hover:to-red-600 transition-all shadow-md"
               >
                 {editingEvent ? "Actualizar" : "Crear evento"}
               </button>

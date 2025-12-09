@@ -228,6 +228,38 @@ export default function KanbanBoard() {
   };
 
   // ---------------------------
+  // Delete task
+  // ---------------------------
+  const handleDeleteTask = async () => {
+    if (!editingCard) return;
+
+    const confirmDelete = window.confirm(
+      `¿Estás seguro de que querés eliminar la tarea "${editingCard.title}"?`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await apiFetch(`http://localhost:8080/api/cards/${editingCard.id}`, {
+        method: "DELETE",
+      });
+
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          cards: col.cards.filter((c) => c.id !== editingCard.id),
+        }))
+      );
+
+      showSuccess("Tarea eliminada");
+      closeTaskModal();
+    } catch (err) {
+      console.error(err);
+      showError("No se pudo eliminar la tarea");
+    }
+  };
+
+  // ---------------------------
   // Drag & Drop
   // ---------------------------
   const [draggedCard, setDraggedCard] = useState(null);
@@ -481,20 +513,31 @@ export default function KanbanBoard() {
 
             
 
-            <div className="flex justify-end gap-4 mt-4">
-              <button
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg"
-                onClick={closeTaskModal}
-              >
-                Cancelar
-              </button>
+            <div className="flex justify-between items-center gap-4 mt-4">
+              {editingCard && (
+                <button
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                  onClick={handleDeleteTask}
+                >
+                  Eliminar
+                </button>
+              )}
 
-              <button
-                className="px-4 py-2 bg-amber-500 text-white rounded-lg"
-                onClick={handleCreateTask}
-              >
-                Guardar
-              </button>
+              <div className="flex gap-4 ml-auto">
+                <button
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                  onClick={closeTaskModal}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+                  onClick={handleCreateTask}
+                >
+                  Guardar
+                </button>
+              </div>
             </div>
           </div>
         </div>

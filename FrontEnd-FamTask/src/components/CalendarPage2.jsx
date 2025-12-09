@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import jwtDecode from "jwt-decode";
 
-export default function CalendarPage() {
+export default function CalendarPage({ onNavigateBack }) {
   const navigate = useNavigate();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -234,28 +234,26 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow-sm sticky top-0 z-10 flex items-center justify-between px-6 py-4">
     {/* BOTÓN VOLVER */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate("/home")}
-            className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
+        <button
+          onClick={onNavigateBack}
+          className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Volver al inicio
-          </button>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+          Volver al inicio
+        </button>
         <div className="flex flex-col items-center">
           <h1 className="text-2xl font-bold text-amber-600">Calendario</h1>
           {googleConnected ? (

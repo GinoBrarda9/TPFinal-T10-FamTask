@@ -12,9 +12,9 @@ const QuickStatsCard = ({ events = [], familyMembers = [] }) => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
       ),
-      color: 'from-purple-400 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
+      color: 'from-orange-400 to-red-500',
+      bgColor: 'bg-orange-50',
+      textColor: 'text-orange-600',
     },
     {
       label: 'Miembros',
