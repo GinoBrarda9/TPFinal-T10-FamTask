@@ -116,6 +116,13 @@ public class CardService {
             }
         }
 
+        if (dto.getAssignedUserDni() == null || dto.getAssignedUserDni().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La tarea debe tener un usuario asignado"
+            );
+        }
+
         // ASSIGNED USER
         if (dto.getAssignedUserDni() != null) {
 

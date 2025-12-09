@@ -7,6 +7,7 @@ import com.team10.famtask.whatsapp.service.WhatsAppService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
-@Service
+@Component
 @RequiredArgsConstructor
 @Slf4j
 public class CardReminderScheduler {
@@ -23,7 +24,7 @@ public class CardReminderScheduler {
     private final CardRepository cardRepository;
     private final WhatsAppService whatsappService;
 
-    @Scheduled(cron = "0 */5 * * * *", zone = "America/Argentina/Cordoba")
+    @Scheduled(fixedRate = 60_000) // ✅ ahora corre cada 1 minuto
     @Transactional
     public void checkCardDeadlines() {
 
@@ -33,7 +34,7 @@ public class CardReminderScheduler {
         List<Card> cards = cardRepository.findAll().stream()
                 .filter(c -> c.getDueDate() != null)
                 .filter(c -> c.getAssignedUser() != null)
-                .filter(c -> c.getStatus() != CardStatus.DONE)     // no enviar si está completa
+                .filter(c -> !Boolean.TRUE.equals(c.getFinished())) // ✅ usamos finished, no status
                 .toList();
 
         for (Card card : cards) {
@@ -44,25 +45,28 @@ public class CardReminderScheduler {
             String phone = normalizePhone(card.getAssignedUser().getPhone());
             if (phone == null) continue;
 
-            // 🟦 24 horas antes
+            // 🟦 24 HORAS ANTES
             if (!Boolean.TRUE.equals(card.getReminderDayBeforeSent())
-                    && minutesLeft <= 1440       // 24h
-                    && minutesLeft > 60) {       // >1h
+                    && minutesLeft <= 1440
+                    && minutesLeft > 61) {
+
                 sendReminder(card, phone, "DAY_BEFORE");
                 card.setReminderDayBeforeSent(true);
             }
 
-            // 🟩 1 hora antes
+            // 🟩 1 HORA ANTES (VENTANA REALISTA)
             if (!Boolean.TRUE.equals(card.getReminderHourBeforeSent())
                     && minutesLeft <= 60
-                    && minutesLeft > 0) {
+                    && minutesLeft >= 1) {  // ✅ ACA ESTABA EL BUG
+
                 sendReminder(card, phone, "HOUR_BEFORE");
                 card.setReminderHourBeforeSent(true);
             }
 
-            // 🔴 Vencida
+            // 🔴 VENCIDA (cualquier momento después del vencimiento)
             if (!Boolean.TRUE.equals(card.getReminderExpiredSent())
                     && minutesLeft <= 0) {
+
                 sendReminder(card, phone, "EXPIRED");
                 card.setReminderExpiredSent(true);
             }
@@ -74,9 +78,11 @@ public class CardReminderScheduler {
     private void sendReminder(Card card, String phone, String type) {
         try {
             whatsappService.sendCardReminder(phone, card.getTitle(), type);
-            log.info("📨 Reminder '{}' enviado para card {} ({})", type, card.getId(), card.getTitle());
+            log.info("📨 Reminder '{}' enviado para la tarea {} ({})",
+                    type, card.getId(), card.getTitle());
         } catch (Exception e) {
-            log.error("❌ Error enviando reminder para card {}: {}", card.getId(), e.getMessage());
+            log.error("❌ Error enviando reminder para la tarea {}: {}",
+                    card.getId(), e.getMessage(), e);
         }
     }
 

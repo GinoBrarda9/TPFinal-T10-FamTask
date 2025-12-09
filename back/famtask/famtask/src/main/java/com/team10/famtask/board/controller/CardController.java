@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -129,11 +132,21 @@ public class CardController {
     }
 
     private CardResponseDTO toDTO(Card c) {
+
+        String dueDateString = null;
+
+        if (c.getDueDate() != null) {
+            dueDateString = c.getDueDate()
+                    .atZone(ZoneId.of("America/Argentina/Cordoba"))
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        }
+
+        assert dueDateString != null;
         return CardResponseDTO.builder()
                 .id(c.getId())
                 .title(c.getTitle())
                 .description(c.getDescription())
-                .dueDate(c.getDueDate())
+                .dueDate(LocalDateTime.parse(dueDateString))   // ← AHORA SIEMPRE SALE BIEN AL FRONT
                 .finished(c.getFinished())
                 .position(c.getPosition())
                 .columnId(c.getColumn().getId())
@@ -142,4 +155,5 @@ public class CardController {
                 )
                 .build();
     }
+
 }

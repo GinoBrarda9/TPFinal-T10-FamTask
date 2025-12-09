@@ -151,6 +151,11 @@ export default function KanbanBoard() {
       return;
     }
 
+    if (!newTask.assignedUserDni) {
+    showWarning("Tenés que asignar la tarea a un usuario");
+    return;
+    }
+
     try {
       const body = {
         title: newTask.title.trim(),
@@ -249,41 +254,42 @@ export default function KanbanBoard() {
     const droppedColumn = columns.find(c => c.id === newColumnId);
     const isFinalColumn = droppedColumn?.name?.toLowerCase().includes("finalizado");
  
+
     try {
-      await apiFetch(`http://localhost:8080/api/cards/${card.id}/move`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          newColumnId,
-          newPosition,
-        }),
-      });
+      // ✅ ÚNICA LLAMADA AL BACK
+      const updatedCard = await apiFetch(
+        `http://localhost:8080/api/cards/${card.id}/move-to-column`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            newColumnId,
+            newPosition,
+          }),
+        }
+      );
 
-      if (isFinalColumn) {
-      await apiFetch(`http://localhost:8080/api/cards/${card.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ finished: true }),
-      });
-    }
+      // ✅ SI ES FINALIZADO, FORZAMOS ESTADO LOCAL
+      const finalCard = isFinalColumn
+        ? { ...updatedCard, finished: true, status: "DONE" }
+        : updatedCard;
 
+      // ✅ Update UI
       setColumns((prev) =>
         prev.map((col) => {
           if (col.id === fromColumnId) {
-            return { ...col, cards: col.cards.filter((c) => c.id !== card.id) };
+            return {
+              ...col,
+              cards: col.cards.filter((c) => c.id !== card.id),
+            };
           }
+
           if (col.id === newColumnId) {
             return {
               ...col,
-              cards: [
-                ...col.cards,
-                {
-                  ...card,
-                  columnId: newColumnId,
-                  finished: isFinalColumn ? true : card.finished,
-                  status: isFinalColumn ? "DONE" : card.status,
-                },
-              ],
+              cards: [...col.cards, finalCard],
             };
           }
+
           return col;
         })
       );
@@ -404,15 +410,19 @@ export default function KanbanBoard() {
                 );
               })}
 
-              <button
-                className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600"
-                onClick={() => {
-                  setSelectedColumnId(col.id);
-                  setShowTaskModal(true);
-                }}
-              >
-                + Nueva Tarea
-              </button>
+              {col.name.toLowerCase().includes("hacer") && (
+                <button
+                  className="w-full py-2 border-2 border-dashed rounded-xl text-gray-500 hover:text-amber-600"
+                  onClick={() => {
+                    setSelectedColumnId(col.id);
+                    setShowTaskModal(true);
+                  }}
+                >
+                  + Nueva Tarea
+                </button>
+              )}
+
+
             </div>
           </div>
         ))}
@@ -453,6 +463,23 @@ export default function KanbanBoard() {
                 setNewTask({ ...newTask, dueDate: e.target.value })
               }
             />
+             
+             <select
+                className="border p-2 rounded-lg w-full mb-3"
+                value={newTask.assignedUserDni}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, assignedUserDni: e.target.value })
+                }
+              >
+                <option value="">Asignar a...</option>
+                {familyMembers.map((m) => (
+                  <option key={m.dni} value={m.dni}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+
+            
 
             <div className="flex justify-end gap-4 mt-4">
               <button
