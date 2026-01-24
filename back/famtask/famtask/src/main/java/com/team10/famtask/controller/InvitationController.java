@@ -10,6 +10,7 @@ import com.team10.famtask.service.family.InvitationService;
 import com.team10.famtask.service.security.SecurityService;
 import com.team10.famtask.util.InvitationMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/invitations")
 @RequiredArgsConstructor
+@Slf4j
 public class InvitationController {
 
     private final InvitationService invitationService;
@@ -34,15 +36,16 @@ public class InvitationController {
     public ResponseEntity<InvitationResponseDTO> createInvitation(
             @RequestBody InvitationRequestDTO req
     ) {
-        System.out.println("[INV] hit controller");
+        log.info("[INV] hit controller");
 
         User sender = securityService.getCurrentUser();
-        Long familyId = req.familyId();
-        String invitedEmail = req.invitedUserEmail();
-        String role = req.role();
+        Long familyId = req.getFamilyId();
+        String invitedEmail = req.getInvitedUserEmail();
+        String role = req.getRole();
+        String familyRole= req.getFamilyRole();
 
         // (Ejemplo) si tu service buscaba por email:
-        Invitation inv = invitationService.createInvitation(sender, familyId, invitedEmail, role);
+        Invitation inv = invitationService.createInvitation(sender, familyId, invitedEmail, role, familyRole);
         return ResponseEntity.ok(InvitationMapper.toResponseDTO(inv));
     }
 

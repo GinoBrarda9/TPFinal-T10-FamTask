@@ -1,6 +1,6 @@
 📌 Requisitos previos
 
-- Java 21+
+- Java 17+
 - Maven 
 - MySQL
 - Node + npm (solo si corre el frontend)

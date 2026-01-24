@@ -31,7 +31,17 @@ public class FamilyMember {
     @JsonIgnore
     private Family family;
 
+    @PrePersist
+    public void prePersist() {
+        if (familyRole == null) familyRole = FamilyRole.PARENT;
+        if (role == null || role.isBlank()) role = "USER";  // solo ADMIN/USER
+    }
     private String role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "family_role", nullable = false)
+    private FamilyRole familyRole;
+
 
     private LocalDateTime joinedAt;
 }

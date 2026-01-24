@@ -63,10 +63,10 @@ class InvitationControllerTest {
     // ======================
     @Test
     void testCreateInvitation_Success() throws Exception {
-        InvitationRequestDTO request = new InvitationRequestDTO(family.getId(), invitedUser.getDni(), "USER");
+        InvitationRequestDTO request = new InvitationRequestDTO();
 
         when(securityService.getCurrentUser()).thenReturn(adminUser);
-        when(invitationService.createInvitation(any(User.class), anyLong(), anyString(), anyString()))
+        when(invitationService.createInvitation(any(User.class), anyLong(), anyString(), anyString(), anyString()))
                 .thenReturn(invitation);
 
         mockMvc.perform(post("/api/invitations")
@@ -81,7 +81,7 @@ class InvitationControllerTest {
                 .andExpect(jsonPath("$.familyName").value(family.getName()));
 
         verify(invitationService, times(1))
-                .createInvitation(any(User.class), anyLong(), anyString(), anyString());
+                .createInvitation(any(User.class), anyLong(), anyString(), anyString(), anyString());
     }
 
     // ======================

@@ -31,7 +31,7 @@ public class AuthController {
     private final GoogleCredentialsConfig googleConfig;
 
     public AuthController(UserRepository userRepository, JwtService jwtService, PasswordEncoder passwordEncoder, GoogleOAuthService googleOAuthService, GoogleCredentialsConfig googleConfig){
-      this.userRepository = userRepository;
+        this.userRepository = userRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
         this.googleOAuthService = googleOAuthService;
@@ -70,7 +70,6 @@ public class AuthController {
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(hashedPassword)
-                .role("user")
                 .build();
 
         userRepository.save(user);

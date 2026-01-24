@@ -35,4 +35,14 @@ public class Invitation {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (familyRole == null || familyRole.isBlank()) familyRole = "PARENT";
+        if (role == null || role.isBlank()) role = "USER"; // solo ADMIN/USER
+    }
+
+    @Column(name = "family_role", nullable = false)
+    private String familyRole; // "PARENT" | "CHILD"
+
 }

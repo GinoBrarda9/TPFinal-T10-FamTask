@@ -25,6 +25,9 @@ export default function KanbanBoard() {
 
   const token = localStorage.getItem("token");
 
+  const [noBoard, setNoBoard] = useState(false);
+
+
   // ---------------------------
   // Helpers
   // ---------------------------
@@ -75,6 +78,44 @@ export default function KanbanBoard() {
       console.warn("No se pudieron cargar miembros:", e);
     }
   };
+
+  const handleCreateBoard = async () => {
+    try {
+      const dni = getDniFromToken();
+      if (!dni) {
+        showWarning("Sesión expirada");
+        return;
+      }
+
+      const profile = await apiFetch(
+        `http://localhost:8080/api/users/${dni}/profile`
+      );
+
+      const familyId = profile.familyId;
+      if (!familyId) {
+        showWarning("No tenés familia asignada");
+        return;
+      }
+
+      // ✅ Creamos el tablero con nombre por defecto
+      await apiFetch(`http://localhost:8080/api/board/family/${familyId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Tablero Familiar",
+        }),
+      });
+
+      showSuccess("Tablero creado correctamente");
+
+      // ✅ Reset flags y recargamos tablero
+      setNoBoard(false);
+      loadBoard();
+    } catch (err) {
+      console.error(err);
+      showError("No se pudo crear el tablero");
+    }
+  };
+
 
   // ---------------------------
   // Load board + columns + cards
@@ -129,12 +170,23 @@ export default function KanbanBoard() {
       setColumns(
         columnsWithCards.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
       );
-    } catch (err) {
-      console.error(err);
-      setErrorMsg("No se pudo cargar el tablero.");
-    } finally {
-      setLoading(false);
-    }
+      } catch (err) {
+        console.error(err);
+
+        // ✅ Si el backend no encuentra tablero, mostramos CTA
+        if (
+          err.message.includes("404") ||
+          err.message.toLowerCase().includes("not found")
+        ) {
+          setNoBoard(true);
+          setErrorMsg("");
+        } else {
+          setErrorMsg("No se pudo cargar el tablero.");
+        }
+      } finally {
+        setLoading(false);
+      }
+
   };
 
   useEffect(() => {
@@ -339,12 +391,33 @@ export default function KanbanBoard() {
   if (loading)
     return <div className="p-6 text-gray-500">Cargando tablero...</div>;
 
+  if (noBoard)
+    return (
+      <div className="p-10 flex flex-col items-center justify-center gap-6 bg-gray-50 rounded-2xl">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Todavía no tenés un tablero Kanban
+        </h2>
+        <p className="text-gray-600 text-center max-w-md">
+          Creá tu primer tablero para comenzar a organizar las tareas de tu familia.
+        </p>
+
+        <button
+          onClick={handleCreateBoard}
+          className="px-6 py-3 bg-amber-500 text-white rounded-xl font-semibold
+                    hover:bg-amber-600 transition shadow-lg"
+        >
+          ➕ Crear tablero
+        </button>
+      </div>
+    );
+
   if (errorMsg)
     return (
       <div className="p-6">
         <p className="text-red-500">{errorMsg}</p>
       </div>
     );
+
 
   return (
     <div className="p-6 bg-gray-50 h-full max-h-[80vh] overflow-hidden rounded-2xl">

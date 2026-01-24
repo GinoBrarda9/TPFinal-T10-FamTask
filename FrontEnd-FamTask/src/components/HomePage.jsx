@@ -37,7 +37,8 @@ export default function HomePage() {
   const [userRole, setUserRole] = useState("USER");
   const [hasContactInfo, setHasContactInfo] = useState(true);
   const [showContactReminder, setShowContactReminder] = useState(false);
-
+  const [inviteFamilyRole, setInviteFamilyRole] = useState("PARENT");
+  const [inviteIsAdmin, setInviteIsAdmin] = useState(false);    
   // Estados para eventos
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -455,7 +456,8 @@ export default function HomePage() {
     const payload = {
       familyId,
       invitedUserEmail: inviteEmail.trim(),
-      role: "USER",
+      role: inviteIsAdmin ? "ADMIN" : "USER",
+      familyRole: inviteFamilyRole,
     };
 
     try {
@@ -471,6 +473,8 @@ export default function HomePage() {
       if (response.ok) {
         showSuccess("¡Invitación enviada exitosamente!");
         setInviteEmail("");
+        setInviteFamilyRole("PARENT");
+        setInviteIsAdmin(false);
       } else {
         const errorData = await response.json().catch(() => ({}));
         showError(`Error: ${errorData.message || "Error desconocido"}`);
@@ -940,6 +944,26 @@ export default function HomePage() {
               className="w-full px-4 py-3 border border-gray-300 rounded-xl
                        focus:ring-2 focus:ring-amber-400 focus:border-transparent mb-4"
             />
+            <div className="mt-2">
+              <label className="block text-sm font-medium">Rol familiar</label>
+              <select
+                value={inviteFamilyRole}
+                onChange={(e) => setInviteFamilyRole(e.target.value)}
+                className="w-full border rounded px-2 py-1"
+              >
+                <option value="PARENT">Padre / Madre</option>
+                <option value="CHILD">Hijo</option>
+              </select>
+            </div>
+            {/* Permiso admin */}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={inviteIsAdmin}
+                onChange={(e) => setInviteIsAdmin(e.target.checked)}
+              />
+              <label className="text-sm">Permitir administrar la familia</label>
+            </div>
             <div className="flex gap-3">
               <button
                 onClick={() => {
