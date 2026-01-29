@@ -5,6 +5,8 @@ import TransactionForm from "./TransactionForm";
 import TransactionList from "./TransactionList";
 import EditModal from "./EditModal";
 import StatsCharts from "./StatsCharts";
+import TransferSection from "./TransferSection";
+
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState([]);
@@ -152,6 +154,10 @@ export default function FinancePage() {
 
       {/* FORM */}
       <TransactionForm refresh={loadFinanceData} />
+
+      {/* TRANSFERENCIAS (Mercado Pago) */}
+      <TransferSection refreshFinance={loadFinanceData} />
+
 
       {/* FILTERS */}
       <div className="bg-white shadow-md rounded-xl p-4 border mb-6">
