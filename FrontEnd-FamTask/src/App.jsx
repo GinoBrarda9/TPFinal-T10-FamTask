@@ -5,7 +5,8 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer } from "react-toastify";
+
 import GoogleSuccess from "./components/GoogleSuccess";
 import FinancePage from "./components/FinancePage";
 import LoginForm from "./components/LoginForm";
@@ -19,15 +20,50 @@ import FinanceReportPage from "./components/FinanceReportPage";
 import KanbanReportPage from "./components/KanbanReportPage";
 import EventReportPage from "./components/EventReportPage";
 
-
 import "./App.css";
+
+// ✅ Valida exp del JWT (base64url safe)
+const isTokenValid = (token) => {
+  try {
+    if (!token) return false;
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+
+    const payload = JSON.parse(jsonPayload);
+
+    // Si no hay exp, lo consideramos inválido (más seguro)
+    if (!payload?.exp) return false;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    return payload.exp > nowSec;
+  } catch (e) {
+    return false;
+  }
+};
 
 function App() {
   const [showSignup, setShowSignup] = useState(false);
 
-  // Verificar si el usuario está autenticado
+  // ✅ Verificar si el usuario está autenticado (y token NO expirado)
   const isAuthenticated = () => {
-    return localStorage.getItem("token") !== null;
+    const token = localStorage.getItem("token");
+    if (!token) return false;
+
+    const valid = isTokenValid(token);
+    if (!valid) {
+      localStorage.removeItem("token"); // limpia sesión vencida
+      return false;
+    }
+    return true;
   };
 
   // Componente para proteger rutas
@@ -55,7 +91,17 @@ function App() {
               )
             }
           />
-          <Route path="/finances" element={<FinancePage />} />
+
+          {/* ✅ Finanzas PROTEGIDA */}
+          <Route
+            path="/finances"
+            element={
+              <ProtectedRoute>
+                <FinancePage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Página principal después del login - PROTEGIDA */}
           <Route
             path="/home"
@@ -65,8 +111,10 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route path="/terminos" element={<TermsModal />} />
           <Route path="/faq" element={<FAQ />} />
+
           <Route
             path="/profile"
             element={
@@ -75,9 +123,10 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route path="/google/success" element={<GoogleSuccess />} />
 
-          {/* ✅ Calendario */}
+          {/* ✅ Calendario PROTEGIDA */}
           <Route
             path="/calendar"
             element={
@@ -86,6 +135,35 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ✅ Reportes PROTEGIDOS */}
+          <Route
+            path="/reports/finance"
+            element={
+              <ProtectedRoute>
+                <FinanceReportPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports/kanban"
+            element={
+              <ProtectedRoute>
+                <KanbanReportPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports/events"
+            element={
+              <ProtectedRoute>
+                <EventReportPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Ruta 404 - Redirigir según autenticación */}
           <Route
             path="*"
@@ -97,20 +175,6 @@ function App() {
               )
             }
           />
-          <Route
-            path="/reports/finance"
-            element={
-              <ProtectedRoute>
-                <FinanceReportPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="/reports/kanban" element={<KanbanReportPage />} />
-
-          <Route path="/reports/events" element={<EventReportPage />} />
-
-
         </Routes>
 
         {/* Modal de Signup */}

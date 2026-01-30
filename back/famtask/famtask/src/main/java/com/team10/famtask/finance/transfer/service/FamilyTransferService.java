@@ -172,23 +172,23 @@ public class FamilyTransferService {
         // Crear movimientos (2) para que impacte en reportes/balance
         Movement expense = Movement.builder()
                 .amount(transfer.getAmount())
-                .description("Transferencia a " + transfer.getToUser().getName() + ": " + transfer.getDescription())
+                .description("Pago a " + transfer.getFromUser().getName() + ": " + transfer.getDescription())
                 .category(transfer.getCategory())
                 .type(MovementType.EXPENSE)
                 .createdAt(LocalDateTime.now())
                 .family(family)
                 .build();
-        expense.setCreatedBy(transfer.getFromUser());
+        expense.setCreatedBy(transfer.getToUser());
 
         Movement income = Movement.builder()
                 .amount(transfer.getAmount())
-                .description("Transferencia de " + transfer.getFromUser().getName() + ": " + transfer.getDescription())
+                .description("Cobro de " + transfer.getToUser().getName() + ": " + transfer.getDescription())
                 .category(transfer.getCategory())
                 .type(MovementType.INCOME)
                 .createdAt(LocalDateTime.now())
                 .family(family)
                 .build();
-        income.setCreatedBy(transfer.getToUser());
+        income.setCreatedBy(transfer.getFromUser());
 
         movementRepository.save(expense);
         movementRepository.save(income);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import CalendarPage from "./CalendarPage2";
 import KanbanBoard from "./KanbanBoard";
@@ -17,6 +17,7 @@ export default function HomePage() {
   const { ConfirmDialog, confirm } = useConfirm();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
 
   const [userName, setUserName] = useState("Usuario");
   const [userDni, setUserDni] = useState("");
@@ -54,6 +55,15 @@ export default function HomePage() {
     familyId: null,
     memberDni: null,
   });
+
+  useEffect(() => {
+  const view = location.state?.view;
+  if (view) {
+    setCurrentView(view);
+    navigate("/home", { replace: true, state: {} });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");

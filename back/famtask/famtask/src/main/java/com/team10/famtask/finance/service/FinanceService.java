@@ -1,5 +1,6 @@
 package com.team10.famtask.finance.service;
 
+import com.team10.famtask.entity.family.User;
 import com.team10.famtask.finance.dto.MovementDTO;
 import com.team10.famtask.finance.entity.Movement;
 import com.team10.famtask.entity.family.Family;
@@ -127,5 +128,18 @@ public class FinanceService {
                         : -m.getAmount())
                 .sum();
     }
+
+    public Double getMyPersonalBalance() {
+        Family family = getLoggedUserFamily();
+        User me = securityService.getCurrentUser();
+
+        return movementRepository.findByFamilyAndCreatedBy(family, me).stream()
+                .mapToDouble(m -> m.getType() == MovementType.INCOME
+                        ? m.getAmount()
+                        : -m.getAmount())
+                .sum();
+    }
+
+
 }
 
