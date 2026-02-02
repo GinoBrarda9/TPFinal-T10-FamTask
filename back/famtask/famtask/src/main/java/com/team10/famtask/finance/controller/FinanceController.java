@@ -39,4 +39,10 @@ public class FinanceController {
     public Double balance() {
         return financeService.getMyFamilyBalance();
     }
+
+    @GetMapping("/balance/me")
+    public Double getMyPersonalBalance() {
+        return financeService.getMyPersonalBalance();
+    }
+
 }
