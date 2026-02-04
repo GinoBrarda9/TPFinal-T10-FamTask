@@ -79,7 +79,11 @@ public class CardService {
 
         updateCardStatus(card);
 
-        return cardRepository.save(card);
+        Card saved = cardRepository.save(card);
+
+        return cardRepository.findByIdWithAssignedUser(saved.getId())
+                .orElse(saved);
+
     }
 
     // =========================================================================
@@ -165,7 +169,11 @@ public class CardService {
             User assigned = userRepository.findById(dni)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
-            card.setAssignedUser(assigned);
+            Card saved = cardRepository.save(card);
+
+            return cardRepository.findByIdWithAssignedUser(saved.getId())
+                    .orElse(saved);
+
         }
 
         // RECOMENDACIÓN #2: recalcular SIEMPRE
@@ -349,7 +357,7 @@ public class CardService {
 
         try {
             CardStatus enumStatus = CardStatus.valueOf(status.toUpperCase());
-            return cardRepository.findByColumnAndStatus(column, enumStatus);
+            return cardRepository.findByColumnAndStatusWithAssignedUser(column, enumStatus);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido: " + status);
         }

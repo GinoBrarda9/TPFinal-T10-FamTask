@@ -12,13 +12,59 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CardRepository extends JpaRepository<Card, Long> {
-    List<Card> findByColumnOrderByPosition(BoardColumn column);
 
-    @Query("SELECT c.column.board.family.id FROM Card c WHERE c.id = :cardId")
-    Optional<Long> findFamilyIdByCardId(Long cardId);
+    @Query("""
+        select c from Card c
+        left join fetch c.assignedUser
+        where c.column = :column
+        order by c.position
+    """)
+    List<Card> findByColumnWithAssignedUser(@Param("column") BoardColumn column);
 
-    @Query("SELECT c FROM Card c WHERE c.column = :column AND c.status = :status ORDER BY c.position")
-    List<Card> findByColumnAndStatus(BoardColumn column, CardStatus status);
+    @Query("""
+        select c from Card c
+        left join fetch c.assignedUser
+        where c.column = :column and c.status = :status
+        order by c.position
+    """)
+    List<Card> findByColumnAndStatusWithAssignedUser(@Param("column") BoardColumn column,
+                                                     @Param("status") CardStatus status);
+
+    @Query("""
+    select c from Card c
+    left join fetch c.assignedUser
+    where c.id = :id
+""")
+    Optional<Card> findByIdWithAssignedUser(@Param("id") Long id);
+
+    @Query("""
+        select c from Card c
+        left join fetch c.assignedUser
+        where c.column = :column
+        order by c.position
+    """)
+    List<Card> findByColumnOrderByPosition(@Param("column") BoardColumn column);
+
+    @Query("select c.column.board.family.id from Card c where c.id = :cardId")
+    Optional<Long> findFamilyIdByCardId(@Param("cardId") Long cardId);
+
+    @Query("""
+        select c from Card c
+        left join fetch c.assignedUser
+        where c.column = :column and c.status = :status
+        order by c.position
+    """)
+    List<Card> findByColumnAndStatus(@Param("column") BoardColumn column,
+                                     @Param("status") CardStatus status);
+
+    // (Opcional) si querés que el findById normal también venga con user
+    // en vez de acordarte de usar findByIdWithAssignedUser:
+    @Query("""
+        select c from Card c
+        left join fetch c.assignedUser
+        where c.id = :id
+    """)
+    Optional<Card> findById(@Param("id") Long id);
 
 /*    @Query("""
     SELECT c FROM Card c
