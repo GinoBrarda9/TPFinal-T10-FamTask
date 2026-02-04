@@ -43,6 +43,29 @@ public class CardService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha límite no puede ser pasada");
         }
 
+        if (dto.getAssignedUserDni() == null || dto.getAssignedUserDni().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "La tarea debe tener un usuario asignado"
+            );
+        }
+
+        Long familyId = column.getBoard().getFamily().getId();
+        String dni = dto.getAssignedUserDni();
+
+        boolean belongs = familyMemberRepository.existsById_UserDniAndId_FamilyId(dni, familyId);
+
+        if (!belongs) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "El usuario " + dni + " no pertenece a esta familia"
+            );
+        }
+
+        User assigned = userRepository.findById(dni)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+
+
         Card card = Card.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
@@ -51,6 +74,7 @@ public class CardService {
                 .createdAt(LocalDateTime.now())
                 .column(column)
                 .position(nextPosition)
+                .assignedUser(assigned)
                 .build();
 
         updateCardStatus(card);

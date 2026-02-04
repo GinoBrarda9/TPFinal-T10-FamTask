@@ -3,6 +3,7 @@ package com.team10.famtask.event.jobs;
 import com.team10.famtask.entity.family.User;
 import com.team10.famtask.event.entity.Event;
 import com.team10.famtask.event.repository.EventRepository;
+import com.team10.famtask.repository.family.UserRepository;
 import com.team10.famtask.repository.profile.ContactInfoRepository;
 import com.team10.famtask.whatsapp.service.WhatsAppService;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -19,6 +23,7 @@ public class EventReminderScheduler {
     private final EventRepository eventRepository;
     private final ContactInfoRepository contactInfoRepository;
     private final WhatsAppService whatsappService;
+    private final UserRepository userRepository;
 
     @Scheduled(cron = "0 */1 * * * *", zone = "America/Argentina/Cordoba")
     public void sendDayBeforeReminders() {
@@ -97,16 +102,26 @@ public class EventReminderScheduler {
 
     private boolean sendReminder(String dni, Event ev, boolean dayBefore) {
         var phoneOpt = contactInfoRepository.findByUser_Dni(dni).map(ci -> ci.getPhone());
+        Optional<User> user = userRepository.findByDni(dni);
         if (phoneOpt.isEmpty() || phoneOpt.get().isBlank()) return false;
+        String nombre = user.get().getName();
 
-        String to = "+" + phoneOpt.get().replaceAll("\\D", "");
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("dd/MM 'a las' HH:mm 'hs'")
+                        .withLocale(new Locale("es", "AR"));
+
+        String formattedDateTime = ev.getStartTime().format(formatter);
+
+
+        String to = phoneOpt.get().replaceAll("\\D", "");
         whatsappService.sendTemplate(
                 to,
+                nombre,
                 ev.getTitle(),
-                ev.getStartTime().toLocalTime().toString(),
+                formattedDateTime,
                 safe(ev.getLocation())
         );
-      /*  String message = "Hola! Este es un recordatorio de tu evento programado. \n" +
+        /*String message = "Hola! Este es un recordatorio de tu evento programado. \n" +
                 "El evento " + ev.getTitle() + " comienza a las " + ev.getStartTime() +" hs en " + ev.getLocation() + ".\n Gracias por usar nuestra app.";
         whatsappService.sendText(to, message);*/
         return true;

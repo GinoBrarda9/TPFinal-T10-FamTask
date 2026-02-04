@@ -140,6 +140,7 @@ public class CardController {
                 .assignedUserDni(
                         c.getAssignedUser() != null ? c.getAssignedUser().getDni() : null
                 )
+                .assignedUserName(c.getAssignedUser() != null ? c.getAssignedUser().getName() : null)
                 .build();
     }
 }

@@ -51,6 +51,12 @@ export default function KanbanBoard() {
     return res.json();
   };
 
+  const toLocalDateTimeString = (val) => {
+  if (!val) return null;
+  return val.length === 16 ? `${val}:00` : val; 
+  };
+
+
   const getDniFromToken = () => {
     if (!token) return null;
     try {
@@ -66,6 +72,26 @@ export default function KanbanBoard() {
     familyMembers.forEach((fm) => (m[fm.dni] = fm.name));
     return m;
   }, [familyMembers]);
+
+  const parseLocalDateTime = (s) => {
+  // s: "YYYY-MM-DDTHH:mm:ss" o "YYYY-MM-DDTHH:mm"
+  if (!s) return null;
+
+  const [datePart, timePartRaw] = s.split("T");
+  const timePart = timePartRaw || "00:00:00";
+
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm, ss = "0"] = timePart.split(":").map(Number);
+
+    return new Date(y, m - 1, d, hh, mm, Number(ss));
+  };
+
+  const formatLocalDateTime = (s) => {
+    const dt = parseLocalDateTime(s);
+    return dt
+      ? dt.toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })
+      : "";
+  };
 
   // ---------------------------
   // Load family members
@@ -213,10 +239,7 @@ export default function KanbanBoard() {
         title: newTask.title.trim(),
         description: newTask.description?.trim() || "",
         assignedUserDni: newTask.assignedUserDni || null,
-        dueDate: newTask.dueDate
-        ? new Date(newTask.dueDate).toISOString().slice(0, 19)
-        : null,
-
+        dueDate: toLocalDateTimeString(newTask.dueDate),
       };
 
       let saved;
@@ -248,6 +271,7 @@ export default function KanbanBoard() {
             body: JSON.stringify(body),
           }
         );
+        console.log("SAVED CARD =>", saved);
 
         setColumns((prev) =>
           prev.map((c) =>
@@ -442,10 +466,12 @@ export default function KanbanBoard() {
             <div className="p-3 space-y-3 max-h-[65vh] overflow-y-auto">
               {(col.cards || []).map((card) => {
                 const now = new Date();
-                const due = card.dueDate ? new Date(card.dueDate) : null;
-
+                const due = card.dueDate ? parseLocalDateTime(card.dueDate) : null;
                 const isDone = card.finished === true;
                 const isExpired = !isDone && due && due < now;
+                const assignedDni = card.assignedUserDni || card.assignedUser?.dni || "";
+                const assignedName = memberNameByDni[assignedDni] || "Sin asignar";
+
                 const isNearDue =
                   !isDone &&
                   due &&
@@ -465,6 +491,7 @@ export default function KanbanBoard() {
                   bgColor = "bg-orange-100";
                   borderColor = "border-orange-500";
                 }
+                
 
                 return (
                   <div
@@ -478,7 +505,7 @@ export default function KanbanBoard() {
                       setNewTask({
                         title: card.title || "",
                         description: card.description || "",
-                        assignedUserDni: card.assignedUserDni || "",
+                        assignedUserDni: (card.assignedUserDni || card.assignedUser?.dni || ""),
                         dueDate: card.dueDate ? card.dueDate.slice(0, 16) : "",
                       });
                       setShowTaskModal(true);
@@ -489,10 +516,18 @@ export default function KanbanBoard() {
                       <p className="text-sm mt-1">{card.description}</p>
                     )}
 
+                    <p className="text-xs mt-2 text-gray-600">
+                        👤 A cargo de:
+                         <span className="font-semibold">
+                          {assignedName}
+                         </span>
+
+                    </p>
+
                     {card.dueDate && (
                       <p className="text-xs mt-2 font-medium">
                         📅{" "}
-                        {new Date(card.dueDate.replace("T", " ")).toLocaleString("es-AR")}
+                        {formatLocalDateTime(card.dueDate)}
                       </p>
                     )}
 
