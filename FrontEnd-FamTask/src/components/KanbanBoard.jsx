@@ -445,8 +445,6 @@ export default function KanbanBoard() {
 
   return (
     <div className="p-6 bg-gray-50 h-full max-h-[80vh] overflow-hidden rounded-2xl">
-      <h1 className="text-3xl font-bold mb-4">Kanban Familiar</h1>
-
       {/* COLUMNS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
         {columns.map((col) => (

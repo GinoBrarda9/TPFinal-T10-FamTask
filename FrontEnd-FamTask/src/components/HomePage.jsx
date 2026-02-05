@@ -577,7 +577,7 @@ export default function HomePage() {
 
   // Si estamos en vista calendario
   if (currentView === "calendar") {
-    return <CalendarPage onNavigateBack={() => setCurrentView("home")} />;
+    return <CalendarPage />;
   }
 
   // Si estamos en vista kanban
@@ -594,78 +594,74 @@ export default function HomePage() {
         />
 
         <div className="flex-1 flex flex-col min-h-screen">
-          {/* Navbar minimalista */}
-          <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-            <div className="flex items-center justify-between h-16 px-6">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-                <h1 className="text-lg font-semibold text-gray-700">
-                  Hola, <span className="text-amber-600">{userName}</span>
+          {/* Topbar */}
+          <header className="bg-white shadow-sm border-b border-gray-200 p-4 lg:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <button
+                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+                onClick={() => setSidebarOpen(true)}
+                type="button"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-800 truncate">
+                  Hola, {userName} 👋
                 </h1>
+                <p className="text-sm text-gray-600">
+                  Organizá y gestioná las tareas de tu familia.
+                </p>
               </div>
 
-              {/* Profile menu */}
-              <div className="flex items-center gap-3">
-                {notificationCount > 0 && (
-                  <button
-                    onClick={() => setShowNotificationsModal(true)}
-                    className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs
-                                   rounded-full flex items-center justify-center font-medium">
-                      {notificationCount}
-                    </span>
-                  </button>
-                )}
-
-                <div className="relative">
-                  <button
-                    onClick={() => setMenuOpen(!menuOpen)}
-                    className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500
-                                  flex items-center justify-center text-white font-bold shadow-md">
-                      {userName?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                  </button>
-
-                  {menuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl
-                                  border border-gray-100 py-2 z-50">
-                      <button
-                        onClick={() => { navigate("/profile"); setMenuOpen(false); }}
-                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        Ver perfil
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        Cerrar sesión
-                      </button>
-                    </div>
-                  )}
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-white font-bold shadow">
+                  {(userName || "U").charAt(0).toUpperCase()}
                 </div>
               </div>
             </div>
-          </nav>
+          </header>
 
-          {/* Kanban Board */}
-          <div className="flex-1 p-6">
-            <KanbanBoard />
-          </div>
+          {/* Content */}
+          <main className="flex-1 overflow-y-auto">
+            <div className="bg-white shadow-sm sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              {/* BOTÓN VOLVER */}
+              <button
+                onClick={() => setCurrentView("home")}
+                className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
+                type="button"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                Volver al inicio
+              </button>
+
+              <div className="flex flex-col items-center">
+                <h2 className="text-2xl font-bold text-amber-600">Tablero Kanban</h2>
+              </div>
+
+              <div className="w-[140px]"></div>
+            </div>
+
+            {/* Kanban Board */}
+            <div className="p-6">
+              <KanbanBoard />
+            </div>
+          </main>
         </div>
 
         <ConfirmDialog />

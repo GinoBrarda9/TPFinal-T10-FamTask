@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import jwtDecode from "jwt-decode";
+import Sidebar from "./Sidebar";
 
-export default function CalendarPage({ onNavigateBack }) {
+export default function CalendarPage() {
   const navigate = useNavigate();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -13,12 +14,19 @@ export default function CalendarPage({ onNavigateBack }) {
   const [showEventModal, setShowEventModal] = useState(false);
   const [view, setView] = useState("month");
 
+  // Sidebar (mobile)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // User info (para sidebar)
+  const [userName, setUserName] = useState("Usuario");
+  const [userRole, setUserRole] = useState("Usuario");
+
   const [newEvent, setNewEvent] = useState({
     title: "",
     description: "",
     date: "",
     time: "",
-    location: "",  
+    location: "",
     color: "#FF5733",
     familyId: null,
   });
@@ -30,6 +38,21 @@ export default function CalendarPage({ onNavigateBack }) {
 
   const daysOfWeek = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
   const [googleConnected, setGoogleConnected] = useState(false);
+
+  const token = localStorage.getItem("token");
+
+  // Decode JWT para nombre/rol
+  useEffect(() => {
+    if (!token) return;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      if (payload?.name) setUserName(payload.name);
+      if (payload?.role) setUserRole(payload.role);
+    } catch (e) {
+      console.warn("No se pudo decodificar el token:", e);
+    }
+  }, [token]);
 
   // ================================
   //  Google status
@@ -228,69 +251,117 @@ export default function CalendarPage({ onNavigateBack }) {
   };
 
   // ================================
-  //  JSX (NO TOCADO)
+  //  JSX
   // ================================
   return (
-    <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow-sm sticky top-0 z-10 flex items-center justify-between px-6 py-4">
-    {/* BOTÓN VOLVER */}
-        <button
-          onClick={onNavigateBack}
-          className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-          Volver al inicio
-        </button>
-        <div className="flex flex-col items-center">
-          <h1 className="text-2xl font-bold text-amber-600">Calendario</h1>
-          {googleConnected ? (
-            <span className="text-green-600 font-semibold text-sm mt-1">Google ✓</span>
-          ) : (
-            <span className="text-red-600 font-semibold text-sm mt-1">Google ✗</span>
-          )}
-        </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar
+        currentView="calendar"
+        onNavigate={() => {}}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        userName={userName}
+        userRole={userRole}
+      />
 
-        <button
-          onClick={() => setShowEventModal(true)}
-          className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold"
-        >
-          + Evento
-        </button>
+      <div className="flex-1 flex flex-col">
+        {/* Topbar */}
+        <header className="bg-white shadow-sm border-b border-gray-200 p-4 lg:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <button
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+              onClick={() => setSidebarOpen(true)}
+              type="button"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
 
-        <button
-          onClick={async () => {
-            const token = localStorage.getItem("token");
-            if (!token) return;
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-800 truncate">
+                Hola, {userName} 👋
+              </h1>
+              <p className="text-sm text-gray-600">
+                Gestioná tus eventos y calendarios aquí.
+              </p>
+            </div>
 
-            const decoded = jwtDecode(token);
-            const dni = decoded.dni || decoded.sub;
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-white font-bold shadow">
+                {(userName || "U").charAt(0).toUpperCase()}
+              </div>
+            </div>
+          </div>
+        </header>
 
-            const res = await fetch(
-              `http://localhost:8080/api/google/calendar/auth/url?dni=${dni}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="bg-white shadow-sm sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            {/* BOTÓN VOLVER */}
+            <button
+              onClick={() => navigate("/home")}
+              className="flex items-center gap-2 text-amber-600 hover:text-amber-700 font-semibold px-4 py-2 rounded-lg"
+              type="button"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Volver al inicio
+            </button>
+            <div className="flex flex-col items-center">
+              <h2 className="text-2xl font-bold text-amber-600">Calendario</h2>
+              {googleConnected ? (
+                <span className="text-green-600 font-semibold text-sm mt-1">Google ✓</span>
+              ) : (
+                <span className="text-red-600 font-semibold text-sm mt-1">Google ✗</span>
+              )}
+            </div>
 
-            const data = await res.json();
-            window.location.href = data.url;
-          }}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg"
-        >
-          Conectar Google
-        </button>
-      </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowEventModal(true)}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold"
+                type="button"
+              >
+                + Evento
+              </button>
+
+              <button
+                onClick={async () => {
+                  const token = localStorage.getItem("token");
+                  if (!token) return;
+
+                  const decoded = jwtDecode(token);
+                  const dni = decoded.dni || decoded.sub;
+
+                  const res = await fetch(
+                    `http://localhost:8080/api/google/calendar/auth/url?dni=${dni}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+
+                  const data = await res.json();
+                  window.location.href = data.url;
+                }}
+                className="bg-red-500 text-white px-4 py-2 rounded-lg"
+                type="button"
+              >
+                Conectar Google
+              </button>
+            </div>
+          </div>
 
       {/* ============================
           VISTAS (mes/día/año)
@@ -460,8 +531,8 @@ export default function CalendarPage({ onNavigateBack }) {
 
       {/* Modal */}
       {showEventModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md relative z-50">
             <h2 className="text-xl font-bold mb-4">Nuevo Evento</h2>
 
             <input
@@ -547,6 +618,8 @@ export default function CalendarPage({ onNavigateBack }) {
           </div>
         </div>
       )}
+        </main>
+      </div>
     </div>
   );
 }

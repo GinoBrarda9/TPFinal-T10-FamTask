@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
 
 export default function EventReportPage() {
   const navigate = useNavigate();
@@ -24,7 +25,29 @@ export default function EventReportPage() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
 
+  // Sidebar (mobile)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // User info (para sidebar)
+  const [userName, setUserName] = useState("Usuario");
+  const [userRole, setUserRole] = useState("Usuario");
+
   const apiBaseUrl = "http://localhost:8080";
+
+  const token = localStorage.getItem("token");
+
+  // Decode JWT para nombre/rol
+  useEffect(() => {
+    if (!token) return;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      if (payload?.name) setUserName(payload.name);
+      if (payload?.role) setUserRole(payload.role);
+    } catch (e) {
+      console.warn("No se pudo decodificar el token:", e);
+    }
+  }, [token]);
 
   // Helpers de fechas para presets tipo GA
   const formatDate = (date) => date.toISOString().slice(0, 10);
@@ -126,38 +149,90 @@ export default function EventReportPage() {
 
   if (loading && !report) {
     return (
-      <div className="p-6 pb-16">
-        <p className="text-gray-600">Cargando reporte de eventos...</p>
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar
+          currentView="reports"
+          onNavigate={() => {}}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          userName={userName}
+          userRole={userRole}
+        />
+        <div className="flex-1 p-6 pb-16">
+          <p className="text-gray-600">Cargando reporte de eventos...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !report) {
     return (
-      <div className="p-6 pb-16">
-        <button
-          onClick={() => navigate("/home")}
-          className="flex items-center gap-2 mb-6 text-amber-600 hover:text-amber-700 font-semibold"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="w-5 h-5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Volver al inicio
-        </button>
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={loadReport}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Reintentar
-        </button>
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar
+          currentView="reports"
+          onNavigate={() => {}}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          userName={userName}
+          userRole={userRole}
+        />
+        <div className="flex-1 flex flex-col">
+          <header className="bg-white shadow-sm border-b border-gray-200 p-4 lg:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <button
+                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+                onClick={() => setSidebarOpen(true)}
+                type="button"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-800 truncate">
+                  Hola, {userName} 👋
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Reportes de eventos
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-white font-bold shadow">
+                  {(userName || "U").charAt(0).toUpperCase()}
+                </div>
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 p-6 pb-16">
+            <button
+              onClick={() => navigate("/home")}
+              className="flex items-center gap-2 mb-6 text-amber-600 hover:text-amber-700 font-semibold"
+              type="button"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Volver al inicio
+            </button>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={loadReport}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              type="button"
+            >
+              Reintentar
+            </button>
+          </main>
+        </div>
       </div>
     );
   }
@@ -167,24 +242,68 @@ export default function EventReportPage() {
   }
 
   return (
-    <div className="p-6 pb-16 bg-gray-50 min-h-screen">
-      {/* Botón volver */}
-      <button
-        onClick={() => navigate("/home")}
-        className="flex items-center gap-2 mb-6 text-amber-600 hover:text-amber-700 font-semibold"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          className="w-5 h-5"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Volver al inicio
-      </button>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar
+        currentView="reports"
+        onNavigate={() => {}}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        userName={userName}
+        userRole={userRole}
+      />
+
+      <div className="flex-1 flex flex-col">
+        {/* Topbar */}
+        <header className="bg-white shadow-sm border-b border-gray-200 p-4 lg:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <button
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+              onClick={() => setSidebarOpen(true)}
+              type="button"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-800 truncate">
+                Hola, {userName} 👋
+              </h1>
+              <p className="text-sm text-gray-600">
+                Reportes de eventos del calendario familiar
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-white font-bold shadow">
+                {(userName || "U").charAt(0).toUpperCase()}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto p-6 pb-16">
+          {/* Botón volver */}
+          <button
+            onClick={() => navigate("/home")}
+            className="flex items-center gap-2 mb-6 text-amber-600 hover:text-amber-700 font-semibold"
+            type="button"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Volver al inicio
+          </button>
 
       {/* Título */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -477,6 +596,8 @@ export default function EventReportPage() {
           Actualizando datos del reporte...
         </p>
       )}
+        </main>
+      </div>
     </div>
   );
 }
