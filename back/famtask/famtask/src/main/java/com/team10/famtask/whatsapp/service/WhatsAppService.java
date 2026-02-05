@@ -65,7 +65,7 @@ public class WhatsAppService {
     /**
      * ✅ Enviar mensaje usando plantilla aprobada por WhatsApp
      */
-    public void sendTemplate(String e164Phone, String nombre, String titulo, String hora, String lugar) {
+    public void sendTemplate(String e164Phone, String titulo, String hora, String lugar) {
 
         String token = dotenv.get("WHATSAPP_TOKEN");
         String phoneId = dotenv.get("WHATSAPP_PHONE_ID");
@@ -90,7 +90,6 @@ public class WhatsAppService {
                                 Map.of(
                                         "type", "body",
                                         "parameters", List.of(
-                                                Map.of("type", "text", "text", nombre),
                                                 Map.of("type", "text", "text", titulo),
                                                 Map.of("type", "text", "text", hora),
                                                 Map.of("type", "text", "text", lugar)
