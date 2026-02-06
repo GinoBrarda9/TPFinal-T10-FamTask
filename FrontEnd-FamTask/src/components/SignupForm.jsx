@@ -54,14 +54,14 @@ export default function SignupForm({ onNavigateToLogin }) {
     return newErrors;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (termsAcceptedFromModal = false) => {
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    if (!acceptedTerms) {
+    if (!acceptedTerms && !termsAcceptedFromModal) {
       showWarning("Debes aceptar los Términos y Condiciones");
       return;
     }
@@ -289,7 +289,7 @@ export default function SignupForm({ onNavigateToLogin }) {
         onAccept={() => {
           setAcceptedTerms(true);
           setShowTerms(false);
-          handleSubmit();
+          handleSubmit(true);
         }}
       />
     </div>
