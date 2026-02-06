@@ -575,7 +575,7 @@ export default function EventReportPage() {
                       {ev.title || "Evento sin título"}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {ev.startTime || "Fecha sin especificar"}
+                      {ev.start || "Fecha sin especificar"}
                       {ev.location ? ` · ${ev.location}` : ""}
                     </p>
                     {ev.type && (
