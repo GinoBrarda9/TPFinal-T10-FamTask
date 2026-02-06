@@ -6,8 +6,8 @@ export default function TermsModal({ open, onAccept, onClose }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 z-50">
-      <div className="bg-white max-w-2xl w-full rounded-2xl shadow-xl p-6 overflow-y-auto max-h-[85vh] border border-amber-200 animate-fadeIn">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-6 z-[100]">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-8 overflow-y-auto max-h-[80vh] border border-amber-200">
         <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
           Términos y Condiciones de FamTask
         </h2>
