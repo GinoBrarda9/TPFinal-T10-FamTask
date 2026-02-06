@@ -11,7 +11,7 @@ export default function SignupForm({ onNavigateToLogin }) {
     email: "",
     password: "",
     confirmPassword: "",
-    rol: "USUARIO",
+    rol: "USER",
   });
 
   const [showTerms, setShowTerms] = useState(false);
@@ -71,6 +71,7 @@ export default function SignupForm({ onNavigateToLogin }) {
     try {
       const dataToSend = {
         dni: formData.dni,
+        role: formData.rol,
         name: formData.nombre,
         email: formData.email,
         password: formData.password,
@@ -231,10 +232,8 @@ export default function SignupForm({ onNavigateToLogin }) {
                   onChange={handleChange}
                   className="w-full px-3 py-1.5 rounded-lg border border-gray-300 bg-white"
                 >
-                  <option value="USUARIO">Usuario</option>
+                  <option value="USER">Usuario</option>
                   <option value="ADMIN">Administrador</option>
-                  <option value="PADRE">Padre/Madre</option>
-                  <option value="HIJO">Hijo/Hija</option>
                 </select>
               </div>
 

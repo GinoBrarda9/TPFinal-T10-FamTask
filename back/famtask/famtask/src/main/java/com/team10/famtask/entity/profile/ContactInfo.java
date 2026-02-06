@@ -30,7 +30,11 @@ public class ContactInfo {
 
     // 📱 Número en formato E.164 (WhatsApp friendly)
     // Validación solo si el campo no está vacío
-    @Pattern(regexp = "^$|^\\+?[1-9]\\d{7,14}$", message = "Número inválido. Debe estar en formato internacional E.164 (ej: +5491123456789)")
+    //@Pattern(
+
+        //    message = "Número inválido. Debe estar en formato internacional (ej: +54 9 351 2545802)"
+    //)
     private String phone;
+
 
 }

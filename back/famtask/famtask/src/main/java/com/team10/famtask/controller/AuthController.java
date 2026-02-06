@@ -70,6 +70,7 @@ public class AuthController {
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(hashedPassword)
+                .role(request.getRole())
                 .build();
 
         userRepository.save(user);
@@ -155,6 +156,7 @@ public class AuthController {
         private String name;
         private String email;
         private String password;
+        private String role;
     }
 
     @Data

@@ -195,9 +195,20 @@ const Sidebar = ({
         </p>
 
         {menuItems.map((item) => {
-          const isActive = item.path
-            ? location.pathname === item.path
-            : currentView === (item.view || item.id);
+          let isActive = false;
+
+          if (item.path) {
+            // Para items con path (home, calendar, finances)
+            if (item.id === "home") {
+              // Home solo activo si estamos en /home Y la vista es "home"
+              isActive = location.pathname === "/home" && (currentView === "home" || !currentView);
+            } else {
+              isActive = location.pathname === item.path;
+            }
+          } else {
+            // Para items con view (kanban)
+            isActive = currentView === (item.view || item.id);
+          }
 
           return (
             <button

@@ -121,9 +121,16 @@ public class EventReminderScheduler {
                 formattedDateTime,
                 safe(ev.getLocation())
         );*/
-        String message = "Hola! Este es un recordatorio de tu evento programado. \n" +
-                "El evento " + ev.getTitle() + " comienza a las " + formattedDateTime +" hs en " + ev.getLocation() + ".\n Gracias por usar nuestra app.";
+        String message =
+                "🔔 Recordatorio de evento\n\n" +
+                        "Hola 😊\n" +
+                        "Te recordamos que tu evento *" + ev.getTitle() + "* comienza el *" +
+                        formattedDateTime + "* en *" + ev.getLocation() + "*.\n\n" +
+                        "¡Esperamos que lo disfrutes!\n" +
+                        "Gracias por usar nuestra app 💙";
+
         whatsappService.sendText(to, message);
+
         return true;
     }
 

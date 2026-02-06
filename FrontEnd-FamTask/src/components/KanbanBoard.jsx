@@ -27,7 +27,6 @@ export default function KanbanBoard() {
 
   const [noBoard, setNoBoard] = useState(false);
 
-
   // ---------------------------
   // Helpers
   // ---------------------------
@@ -52,10 +51,9 @@ export default function KanbanBoard() {
   };
 
   const toLocalDateTimeString = (val) => {
-  if (!val) return null;
-  return val.length === 16 ? `${val}:00` : val; 
+    if (!val) return null;
+    return val.length === 16 ? `${val}:00` : val;
   };
-
 
   const getDniFromToken = () => {
     if (!token) return null;
@@ -74,14 +72,14 @@ export default function KanbanBoard() {
   }, [familyMembers]);
 
   const parseLocalDateTime = (s) => {
-  // s: "YYYY-MM-DDTHH:mm:ss" o "YYYY-MM-DDTHH:mm"
-  if (!s) return null;
+    // s: "YYYY-MM-DDTHH:mm:ss" o "YYYY-MM-DDTHH:mm"
+    if (!s) return null;
 
-  const [datePart, timePartRaw] = s.split("T");
-  const timePart = timePartRaw || "00:00:00";
+    const [datePart, timePartRaw] = s.split("T");
+    const timePart = timePartRaw || "00:00:00";
 
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm, ss = "0"] = timePart.split(":").map(Number);
+    const [y, m, d] = datePart.split("-").map(Number);
+    const [hh, mm, ss = "0"] = timePart.split(":").map(Number);
 
     return new Date(y, m - 1, d, hh, mm, Number(ss));
   };
@@ -114,7 +112,7 @@ export default function KanbanBoard() {
       }
 
       const profile = await apiFetch(
-        `http://localhost:8080/api/users/${dni}/profile`
+        `http://localhost:8080/api/users/${dni}/profile`,
       );
 
       const familyId = profile.familyId;
@@ -142,7 +140,6 @@ export default function KanbanBoard() {
     }
   };
 
-
   // ---------------------------
   // Load board + columns + cards
   // ---------------------------
@@ -158,7 +155,7 @@ export default function KanbanBoard() {
       }
 
       const profile = await apiFetch(
-        `http://localhost:8080/api/users/${dni}/profile`
+        `http://localhost:8080/api/users/${dni}/profile`,
       );
       const familyId = profile.familyId;
       if (!familyId) {
@@ -167,20 +164,20 @@ export default function KanbanBoard() {
       }
 
       const board = await apiFetch(
-        `http://localhost:8080/api/board/family/${familyId}`
+        `http://localhost:8080/api/board/family/${familyId}`,
       );
       const bId = board.boardId || board.id;
       setBoardId(bId);
 
       const columnsData = await apiFetch(
-        `http://localhost:8080/api/board/${bId}/columns`
+        `http://localhost:8080/api/board/${bId}/columns`,
       );
 
       const columnsWithCards = await Promise.all(
         columnsData.map(async (col) => {
           try {
             const cards = await apiFetch(
-              `http://localhost:8080/api/cards/column/${col.id}`
+              `http://localhost:8080/api/cards/column/${col.id}`,
             );
 
             return {
@@ -190,29 +187,28 @@ export default function KanbanBoard() {
           } catch {
             return { ...col, cards: [] };
           }
-        })
+        }),
       );
 
       setColumns(
-        columnsWithCards.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        columnsWithCards.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
       );
-      } catch (err) {
-        console.error(err);
+    } catch (err) {
+      console.error(err);
 
-        // ✅ Si el backend no encuentra tablero, mostramos CTA
-        if (
-          err.message.includes("404") ||
-          err.message.toLowerCase().includes("not found")
-        ) {
-          setNoBoard(true);
-          setErrorMsg("");
-        } else {
-          setErrorMsg("No se pudo cargar el tablero.");
-        }
-      } finally {
-        setLoading(false);
+      // ✅ Si el backend no encuentra tablero, mostramos CTA
+      if (
+        err.message.includes("404") ||
+        err.message.toLowerCase().includes("not found")
+      ) {
+        setNoBoard(true);
+        setErrorMsg("");
+      } else {
+        setErrorMsg("No se pudo cargar el tablero.");
       }
-
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -230,8 +226,8 @@ export default function KanbanBoard() {
     }
 
     if (!newTask.assignedUserDni) {
-    showWarning("Tenés que asignar la tarea a un usuario");
-    return;
+      showWarning("Tenés que asignar la tarea a un usuario");
+      return;
     }
 
     try {
@@ -251,14 +247,14 @@ export default function KanbanBoard() {
           {
             method: "PUT",
             body: JSON.stringify(body),
-          }
+          },
         );
 
         setColumns((prev) =>
           prev.map((col) => ({
             ...col,
             cards: col.cards.map((c) => (c.id === saved.id ? saved : c)),
-          }))
+          })),
         );
 
         showSuccess("Tarea actualizada");
@@ -269,7 +265,7 @@ export default function KanbanBoard() {
           {
             method: "POST",
             body: JSON.stringify(body),
-          }
+          },
         );
         console.log("SAVED CARD =>", saved);
 
@@ -277,8 +273,8 @@ export default function KanbanBoard() {
           prev.map((c) =>
             c.id === selectedColumnId
               ? { ...c, cards: [...c.cards, saved] }
-              : c
-          )
+              : c,
+          ),
         );
 
         showSuccess("Tarea creada");
@@ -310,7 +306,7 @@ export default function KanbanBoard() {
     if (!editingCard) return;
 
     const confirmDelete = window.confirm(
-      `¿Estás seguro de que querés eliminar la tarea "${editingCard.title}"?`
+      `¿Estás seguro de que querés eliminar la tarea "${editingCard.title}"?`,
     );
 
     if (!confirmDelete) return;
@@ -324,7 +320,7 @@ export default function KanbanBoard() {
         prev.map((col) => ({
           ...col,
           cards: col.cards.filter((c) => c.id !== editingCard.id),
-        }))
+        })),
       );
 
       showSuccess("Tarea eliminada");
@@ -359,9 +355,10 @@ export default function KanbanBoard() {
     const newPosition =
       columns.find((c) => c.id === newColumnId)?.cards?.length ?? 0;
 
-    const droppedColumn = columns.find(c => c.id === newColumnId);
-    const isFinalColumn = droppedColumn?.name?.toLowerCase().includes("finalizado");
- 
+    const droppedColumn = columns.find((c) => c.id === newColumnId);
+    const isFinalColumn = droppedColumn?.name
+      ?.toLowerCase()
+      .includes("finalizado");
 
     try {
       // ✅ ÚNICA LLAMADA AL BACK
@@ -373,7 +370,7 @@ export default function KanbanBoard() {
             newColumnId,
             newPosition,
           }),
-        }
+        },
       );
 
       // ✅ SI ES FINALIZADO, FORZAMOS ESTADO LOCAL
@@ -399,7 +396,7 @@ export default function KanbanBoard() {
           }
 
           return col;
-        })
+        }),
       );
     } catch (err) {
       console.error("Error moviendo card:", err);
@@ -422,7 +419,8 @@ export default function KanbanBoard() {
           Todavía no tenés un tablero Kanban
         </h2>
         <p className="text-gray-600 text-center max-w-md">
-          Creá tu primer tablero para comenzar a organizar las tareas de tu familia.
+          Creá tu primer tablero para comenzar a organizar las tareas de tu
+          familia.
         </p>
 
         <button
@@ -441,7 +439,6 @@ export default function KanbanBoard() {
         <p className="text-red-500">{errorMsg}</p>
       </div>
     );
-
 
   return (
     <div className="p-6 bg-gray-50 h-full max-h-[80vh] overflow-hidden rounded-2xl">
@@ -464,11 +461,15 @@ export default function KanbanBoard() {
             <div className="p-3 space-y-3 max-h-[65vh] overflow-y-auto">
               {(col.cards || []).map((card) => {
                 const now = new Date();
-                const due = card.dueDate ? parseLocalDateTime(card.dueDate) : null;
+                const due = card.dueDate
+                  ? parseLocalDateTime(card.dueDate)
+                  : null;
                 const isDone = card.finished === true;
                 const isExpired = !isDone && due && due < now;
-                const assignedDni = card.assignedUserDni || card.assignedUser?.dni || "";
-                const assignedName = memberNameByDni[assignedDni] || "Sin asignar";
+                const assignedDni =
+                  card.assignedUserDni || card.assignedUser?.dni || "";
+                const assignedName =
+                  memberNameByDni[assignedDni] || "Sin asignar";
 
                 const isNearDue =
                   !isDone &&
@@ -489,7 +490,6 @@ export default function KanbanBoard() {
                   bgColor = "bg-orange-100";
                   borderColor = "border-orange-500";
                 }
-                
 
                 return (
                   <div
@@ -503,7 +503,8 @@ export default function KanbanBoard() {
                       setNewTask({
                         title: card.title || "",
                         description: card.description || "",
-                        assignedUserDni: (card.assignedUserDni || card.assignedUser?.dni || ""),
+                        assignedUserDni:
+                          card.assignedUserDni || card.assignedUser?.dni || "",
                         dueDate: card.dueDate ? card.dueDate.slice(0, 16) : "",
                       });
                       setShowTaskModal(true);
@@ -515,17 +516,13 @@ export default function KanbanBoard() {
                     )}
 
                     <p className="text-xs mt-2 text-gray-600">
-                        👤 A cargo de:
-                         <span className="font-semibold">
-                          {assignedName}
-                         </span>
-
+                      👤 A cargo de:
+                      <span className="font-semibold">{assignedName}</span>
                     </p>
 
                     {card.dueDate && (
                       <p className="text-xs mt-2 font-medium">
-                        📅{" "}
-                        {formatLocalDateTime(card.dueDate)}
+                        📅 {formatLocalDateTime(card.dueDate)}
                       </p>
                     )}
 
@@ -559,8 +556,6 @@ export default function KanbanBoard() {
                   + Nueva Tarea
                 </button>
               )}
-
-
             </div>
           </div>
         ))}
@@ -601,23 +596,21 @@ export default function KanbanBoard() {
                 setNewTask({ ...newTask, dueDate: e.target.value })
               }
             />
-             
-             <select
-                className="border p-2 rounded-lg w-full mb-3"
-                value={newTask.assignedUserDni}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, assignedUserDni: e.target.value })
-                }
-              >
-                <option value="">Asignar a...</option>
-                {familyMembers.map((m) => (
-                  <option key={m.dni} value={m.dni}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
 
-            
+            <select
+              className="border p-2 rounded-lg w-full mb-3"
+              value={newTask.assignedUserDni}
+              onChange={(e) =>
+                setNewTask({ ...newTask, assignedUserDni: e.target.value })
+              }
+            >
+              <option value="">Asignar a...</option>
+              {familyMembers.map((m) => (
+                <option key={m.dni} value={m.dni}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
 
             <div className="flex justify-between items-center gap-4 mt-4">
               {editingCard && (

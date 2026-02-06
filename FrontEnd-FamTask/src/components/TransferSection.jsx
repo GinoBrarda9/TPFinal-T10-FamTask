@@ -23,14 +23,14 @@ export default function TransferSection({ refreshFinance }) {
       const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
       const padded = base64.padEnd(
         base64.length + ((4 - (base64.length % 4)) % 4),
-        "="
+        "=",
       );
 
       const json = decodeURIComponent(
         atob(padded)
           .split("")
           .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-          .join("")
+          .join(""),
       );
 
       return JSON.parse(json);
@@ -172,7 +172,7 @@ export default function TransferSection({ refreshFinance }) {
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (!res.ok) {
@@ -207,12 +207,12 @@ export default function TransferSection({ refreshFinance }) {
     const phone = member.phone.replace(/\D/g, "");
 
     const text =
-      `Hola ${member.name} 👋\n\n` +
+      `Hola ${member.name} \n\n` +
       `Te envío una solicitud de pago familiar:\n\n` +
-      `💰 Monto: $${formatAmount(request.amount)} ARS\n` +
-      `📝 Concepto: ${request.description}\n\n` +
-      `👉 Link de cobro (para pagar):\n${request.mpInitPoint}\n\n` +
-      `Gracias 😊`;
+      ` Monto: $${formatAmount(request.amount)} ARS\n` +
+      ` Concepto: ${request.description}\n\n` +
+      ` Link de cobro (para pagar):\n${request.mpInitPoint}\n\n` +
+      `Gracias `;
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
@@ -234,8 +234,8 @@ export default function TransferSection({ refreshFinance }) {
           Solicitudes de pago (Mercado Pago)
         </h3>
         <p className="text-xs text-gray-500 mt-1">
-          Generá un <span className="font-semibold">link de cobro</span> para que
-          otro miembro pague
+          Generá un <span className="font-semibold">link de cobro</span> para
+          que otro miembro pague
         </p>
       </div>
 
@@ -352,15 +352,17 @@ export default function TransferSection({ refreshFinance }) {
                       )}
 
                       {/* ✅ solo el cobrador debería compartir y cerrar demo */}
-                      {t.status === "PENDING" && t.mpInitPoint && iAmCollector && (
-                        <button
-                          onClick={() => sendWhatsApp(t.toUserDni, t)}
-                          className="px-3 py-2 rounded bg-green-500 hover:bg-green-600 text-white font-semibold text-sm"
-                          type="button"
-                        >
-                          Enviar por WhatsApp
-                        </button>
-                      )}
+                      {t.status === "PENDING" &&
+                        t.mpInitPoint &&
+                        iAmCollector && (
+                          <button
+                            onClick={() => sendWhatsApp(t.toUserDni, t)}
+                            className="px-3 py-2 rounded bg-green-500 hover:bg-green-600 text-white font-semibold text-sm"
+                            type="button"
+                          >
+                            Enviar por WhatsApp
+                          </button>
+                        )}
 
                       {t.status === "PENDING" && iAmCollector && (
                         <button
